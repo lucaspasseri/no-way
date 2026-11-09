@@ -1,0 +1,93 @@
+[
+	{
+		"id": 1,
+		"question": "How many kilometers are in the distance from the Earth to the Sun? (in million kilometers)",
+		"answer": "149.6",
+		"src-label": "Earth to Sun Distance",
+		"src": "https://en.wikipedia.org/wiki/Astronomical_unit"
+	},
+	{
+		"id": 2,
+		"question": "How many kilometers are in the distance from the Earth to the Moon? (in thousand kilometers)",
+		"answer": "384.4",
+		"src-label": "Earth to Moon Distance",
+		"src": "https://en.wikipedia.org/wiki/Lunar_distance"
+	},
+	{
+		"id": 3,
+		"question": "How many kilometers are in the approximate average distance from the Earth to Mars? (in million kilometers)",
+		"answer": "225",
+		"src-label": "Earth to Mars Distance",
+		"src": "https://en.wikipedia.org/wiki/Mars#Distance_from_Earth"
+	},
+	{
+		"id": 4,
+		"question": "How many kilometers are in the average distance from Mercury to the Sun? (in million kilometers)",
+		"answer": "58",
+		"src-label": "Mercury to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 5,
+		"question": "How many kilometers are in the average distance from Venus to the Sun? (in million kilometers)",
+		"answer": "108",
+		"src-label": "Venus to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 6,
+		"question": "How many kilometers are in the average distance from Mars to the Sun? (in million kilometers)",
+		"answer": "227.9",
+		"src-label": "Mars to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 7,
+		"question": "How many kilometers are in the average distance from Jupiter to the Sun? (in million kilometers)",
+		"answer": "778",
+		"src-label": "Jupiter to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 8,
+		"question": "How many kilometers are in the average distance from Saturn to the Sun? (in million kilometers)",
+		"answer": "1400",
+		"src-label": "Saturn to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 9,
+		"question": "How many kilometers are in the average distance from Uranus to the Sun? (in million kilometers)",
+		"answer": "2900",
+		"src-label": "Uranus to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 10,
+		"question": "How many kilometers are in the average distance from Neptune to the Sun? (in million kilometers)",
+		"answer": "4500",
+		"src-label": "Neptune to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 11,
+		"question": "How many kilometers are in the average distance from Pluto to the Sun? (in million kilometers)",
+		"answer": "5900",
+		"src-label": "Pluto to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 12,
+		"question": "How many kilometers are in the average distance from Ceres to the Sun? (in million kilometers)",
+		"answer": "413",
+		"src-label": "Ceres to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	},
+	{
+		"id": 13,
+		"question": "How many kilometers are in the average distance from Eris to the Sun? (in million kilometers)",
+		"answer": "10000",
+		"src-label": "Eris to Sun Distance",
+		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
+	}
+]

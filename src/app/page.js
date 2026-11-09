@@ -1,9 +1,18 @@
+import fetchFake from "@/utils/fetchFake";
 import styles from "./page.module.css";
+import jsonData from "../data/questions.json";
+import QuestionPresentation from "@/components/QuestionPresentation";
 
-export default function Home() {
+export default async function Home() {
+	const questionArr = await fetchFake(jsonData, 1000);
+
+	console.log({ questionArr });
+
 	return (
 		<div className={styles.page}>
-			<main className={styles.main}></main>
+			<main className={styles.main}>
+				<QuestionPresentation questionArr={questionArr} />
+			</main>
 		</div>
 	);
 }
