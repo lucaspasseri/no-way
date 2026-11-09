@@ -1,0 +1,104 @@
+/* Extracted from the No Way — Party Trivia System design brief. */
+:root {
+	color-scheme: light;
+
+	--color-primary: #4338ca;
+	--color-on-primary: #ffffff;
+	--color-surface: #faf8f5;
+	--color-on-surface: #1e1b2e;
+	--color-surface-card: #ffffff;
+	--color-on-surface-card: #1e1b2e;
+	--color-surface-dim: #f3efea;
+	--color-outline: #e2dcd5;
+	--color-accent: #d97706;
+	--color-sunshine: #f59e0b;
+	--color-doubt: #dc2626;
+	--color-on-doubt: #ffffff;
+	--color-correct: #059669;
+	--color-on-correct: #1c1c1c;
+
+	--font-display: var(--font-fredoka), "Trebuchet MS", sans-serif;
+	--font-body: var(--font-plus-jakarta-sans), Arial, sans-serif;
+	--text-display-lg: 2rem;
+	--leading-display-lg: 2.375rem;
+	--tracking-display-lg: -0.015625rem;
+	--text-headline-lg: 1.5rem;
+	--leading-headline-lg: 1.875rem;
+	--text-headline-md: 1.125rem;
+	--leading-headline-md: 1.5rem;
+	--text-body-lg: 1.0625rem;
+	--leading-body-lg: 1.625rem;
+	--text-body-md: 0.9375rem;
+	--leading-body-md: 1.375rem;
+	--text-label-lg: 0.875rem;
+	--leading-label-lg: 1.25rem;
+	--text-label-sm: 0.75rem;
+	--leading-label-sm: 1rem;
+
+	--space-xs: 0.25rem;
+	--space-sm: 0.5rem;
+	--space-md: 1rem;
+	--space-lg: 1.5rem;
+	--space-xl: 2rem;
+	--page-margin: 1.25rem;
+	--page-max-width: 1200px;
+	--content-max: 27.5rem;
+	--radius-sm: 0.5rem;
+	--radius-default: 0.875rem;
+	--radius-md: 1.125rem;
+	--radius-lg: 1.5rem;
+	--radius-full: 9999px;
+	--border-width: 1.5px;
+	--shadow-card:
+		0 4px 14px -2px rgb(30 27 46 / 6%), 0 2px 6px -1px rgb(30 27 46 / 4%);
+	--button-depth: 2px;
+	--duration-state: 120ms;
+	--duration-enter: 240ms;
+	--ease-state: ease-out;
+	--ease-enter: cubic-bezier(0.2, 0, 0.1, 1);
+}
+
+@media (min-width: 480px) {
+	:root {
+		--text-display-lg: 2.5rem;
+		--leading-display-lg: 3rem;
+		--tracking-display-lg: -0.03125rem;
+		--text-headline-lg: 1.75rem;
+		--leading-headline-lg: 2.25rem;
+		--text-headline-md: 1.25rem;
+		--leading-headline-md: 1.625rem;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--color-primary: #818cf8;
+		--color-on-primary: #0f172a;
+		--color-surface: #13111c;
+		--color-on-surface: #f8fafc;
+		--color-surface-card: #1e1b2e;
+		--color-on-surface-card: #f8fafc;
+		--color-surface-dim: #2a263d;
+		--color-outline: #37324f;
+	}
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--color-primary: #818cf8;
+	--color-on-primary: #0f172a;
+	--color-surface: #13111c;
+	--color-on-surface: #f8fafc;
+	--color-surface-card: #1e1b2e;
+	--color-on-surface-card: #f8fafc;
+	--color-surface-dim: #2a263d;
+	--color-outline: #37324f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-state: 0ms;
+		--duration-enter: 0ms;
+	}
+}

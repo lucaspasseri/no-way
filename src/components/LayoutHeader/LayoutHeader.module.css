@@ -1,0 +1,22 @@
+.header {
+	height: fit-content;
+	width: 100%;
+	border: var(--border-width) solid white;
+
+	padding: 1em max(1em, calc((100vw - var(--page-max-width)) / 2));
+	display: flex;
+	justify-content: space-between;
+}
+
+.logo {
+	height: 60px;
+	aspect-ratio: 1 /1;
+	border: var(--border-width) solid blue;
+	border-radius: 100%;
+}
+
+.menu {
+	height: 60px;
+	aspect-ratio: 1 /1;
+	border: var(--border-width) solid blue;
+}
