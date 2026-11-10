@@ -1,5 +1,10 @@
 .container {
-	margin: 1.2em;
+}
+
+.control {
+	margin-top: 2em;
+	background-color: #fff;
+	display: flex;
+	justify-content: center;
 	padding: 0.8em;
-	border: var(--border-width) solid white;
 }

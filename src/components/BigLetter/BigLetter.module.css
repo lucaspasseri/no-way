@@ -1,0 +1,21 @@
+.container {
+	border: var(--border-width) solid;
+	background-color: var(--color-primary-background);
+	border-color: var(--color-primary-border);
+	border-radius: var(--radius-lg);
+	padding: var(--space-sm);
+	width: 4.2rem;
+	aspect-ratio: 1 / 1;
+	flex-shrink: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: fit-content;
+}
+
+.letter h2 {
+	font-size: 3em;
+	line-height: 1;
+	color: var(--color-primary);
+	display: block;
+}

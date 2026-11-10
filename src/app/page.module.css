@@ -13,8 +13,8 @@
 	flex-direction: column;
 	gap: var(--space-md);
 	border: var(--border-width) solid white;
-	background: var(--color-surface-card);
-	color: var(--color-on-surface-card);
+	background: var(--color-surface);
+	color: var(--color-on-surface);
 	box-shadow: var(--shadow-card);
 }
 

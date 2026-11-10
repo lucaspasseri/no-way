@@ -22,8 +22,8 @@ body {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	background: var(--color-surface);
-	color: var(--color-on-surface);
+	background: var(--color-surface-card);
+	color: var(--color-on-surface-card);
 	font-family: var(--font-body);
 	font-size: var(--text-body-md);
 	line-height: var(--leading-body-md);

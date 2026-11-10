@@ -16,6 +16,16 @@
 	--color-on-doubt: #ffffff;
 	--color-correct: #059669;
 	--color-on-correct: #1c1c1c;
+	--color-primary-border: color-mix(
+		in srgb,
+		var(--color-primary) 25%,
+		var(--color-surface-card)
+	);
+	--color-primary-background: color-mix(
+		in srgb,
+		var(--color-primary) 9%,
+		var(--color-surface-card)
+	);
 
 	--font-display: var(--font-fredoka), "Trebuchet MS", sans-serif;
 	--font-body: var(--font-plus-jakarta-sans), Arial, sans-serif;
@@ -48,7 +58,7 @@
 	--radius-md: 1.125rem;
 	--radius-lg: 1.5rem;
 	--radius-full: 9999px;
-	--border-width: 1.5px;
+	--border-width: 2px;
 	--shadow-card:
 		0 4px 14px -2px rgb(30 27 46 / 6%), 0 2px 6px -1px rgb(30 27 46 / 4%);
 	--button-depth: 2px;

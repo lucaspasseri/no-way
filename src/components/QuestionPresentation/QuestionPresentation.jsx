@@ -3,6 +3,8 @@
 import React from "react";
 import styles from "./QuestionPresentation.module.css";
 import QuestionCard from "../QuestionCard";
+import AnswerInput from "../AnswerInput";
+import GuessesList from "../GuessesList";
 
 function QuestionPresentation({ questionArr }) {
 	const [question, setQuestion] = React.useState(null);
@@ -27,9 +29,12 @@ function QuestionPresentation({ questionArr }) {
 					handleRandomQuestion={handleRandomQuestion}
 				/>
 			)}
-			<div>
+			<div className={styles.control}>
 				<button onClick={handleRandomQuestion}> Refresh</button>
 			</div>
+
+			<AnswerInput />
+			<GuessesList />
 		</div>
 	);
 }
