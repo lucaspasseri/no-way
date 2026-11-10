@@ -1,6 +1,7 @@
 import { Fredoka, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import LayoutHeader from "@/components/LayoutHeader";
+import ThemeProvider from "@/components/ThemeProvider";
 
 const fredoka = Fredoka({
 	variable: "--font-fredoka",
@@ -22,14 +23,17 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
 	return (
-		<html
-			lang='en'
-			className={`${fredoka.variable} ${plusJakartaSans.variable}`}
-		>
-			<body>
-				<LayoutHeader />
-				{children}
-			</body>
-		</html>
+		<ThemeProvider>
+			<html
+				lang='en'
+				data-theme='dark'
+				className={`${fredoka.variable} ${plusJakartaSans.variable}`}
+			>
+				<body>
+					<LayoutHeader />
+					{children}
+				</body>
+			</html>
+		</ThemeProvider>
 	);
 }

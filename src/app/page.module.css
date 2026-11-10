@@ -16,6 +16,7 @@
 	background: var(--color-surface);
 	color: var(--color-on-surface);
 	box-shadow: var(--shadow-card);
+	align-items: center;
 }
 
 .main h1 {

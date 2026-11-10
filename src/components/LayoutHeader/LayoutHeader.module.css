@@ -15,7 +15,5 @@
 }
 
 .menu {
-	height: 60px;
-	aspect-ratio: 1 /1;
-	border: var(--border-width) solid blue;
+	height: fit-content;
 }
