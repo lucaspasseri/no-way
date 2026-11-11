@@ -1,0 +1,7 @@
+.container {
+	border-radius: var(--radius-default);
+	background-color: var(--color-surface-card);
+	box-shadow: var(--shadow-card);
+	border: var(--border-width) solid var(--color-outline);
+	padding: 1em;
+}

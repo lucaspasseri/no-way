@@ -1,0 +1,14 @@
+.container {
+}
+
+.controlPainel {
+	display: flex;
+	justify-content: space-between;
+	background-color: var(--color-surface);
+	gap: 0.6em;
+}
+
+.changeQuestionContainer {
+	display: flex;
+	gap: 0.6em;
+}

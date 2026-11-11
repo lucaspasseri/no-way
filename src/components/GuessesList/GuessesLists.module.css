@@ -1,0 +1,21 @@
+.container {
+	margin-top: 2em;
+	background-color: var(--color-surface-dim);
+	padding: 0.8em;
+	border-radius: var(--radius-default);
+	border: var(--border-width) solid var(--color-outline);
+	box-shadow: var(--shadow-card);
+}
+
+.container ol {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.container li {
+	text-decoration: line-through;
+}
+.container li:last-of-type {
+	text-decoration: unset;
+}

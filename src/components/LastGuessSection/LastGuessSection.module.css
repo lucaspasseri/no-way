@@ -1,0 +1,15 @@
+.container {
+	background-color: var(--color-surface-dim);
+	padding: 0.8em;
+	border-radius: var(--radius-default);
+	border: var(--border-width) solid var(--color-outline);
+	box-shadow: var(--shadow-card);
+	width: fit-content;
+}
+
+.lastGuess {
+	display: flex;
+	gap: 2em;
+	align-items: end;
+	flex-wrap: wrap;
+}

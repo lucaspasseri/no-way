@@ -1,0 +1,10 @@
+.container {
+	margin-top: 2em;
+}
+
+.main {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	row-gap: 1em;
+}
