@@ -1,25 +1,22 @@
-import { ArrowRight, BookOpen, CheckCircle, ExternalLink, XCircle } from 'react-feather';
+import { ArrowRight, BookOpen, CheckCircle, ExternalLink } from 'react-feather';
 import { formatNumber, getGuessDifference } from '@/features/game/game-rules.mjs';
 import styles from './GameResult.module.css';
 
 /** @param {{ result: import('@/features/game/game-rules.mjs').ChallengeResult, onNextRound: () => void, error: string | null, headingRef: import('react').RefObject<HTMLHeadingElement | null> }} props */
 export default function GameResult({ result, onNextRound, error, headingRef }) {
-  const { success, guess, answer, question } = result;
+  const { guess, answer, question } = result;
   const { explanation, 'src-label': sourceLabel, src } = question;
   const difference = formatNumber(getGuessDifference(guess, answer));
-  const OutcomeIcon = success ? CheckCircle : XCircle;
 
   return (
-    <section className={`${styles.container} ${success ? styles.success : styles.failure}`} aria-labelledby='result-title'>
+    <section className={`${styles.container} ${styles.success}`} aria-labelledby='result-title'>
       <header className={styles.hero}>
-        <div className={styles.outcomeIcon}><OutcomeIcon size={28} aria-hidden='true' /></div>
+        <div className={styles.outcomeIcon}><CheckCircle size={28} aria-hidden='true' /></div>
         <p className={styles.eyebrow}>Round complete</p>
         <h2 id='result-title' tabIndex={-1} ref={headingRef} aria-describedby='result-description'>
-          {success ? 'Challenge successful!' : 'Challenge failed!'}
+          Challenge successful!
         </h2>
-        <p id='result-description'>{success
-          ? 'The last guess was higher than the correct answer.'
-          : 'The last guess did not exceed the correct answer.'}</p>
+        <p id='result-description'>The last guess was higher than the correct answer.</p>
       </header>
 
       <section className={styles.comparison} aria-labelledby='result-question'>
@@ -35,11 +32,7 @@ export default function GameResult({ result, onNextRound, error, headingRef }) {
             <dd>{formatNumber(answer)}</dd>
           </div>
         </dl>
-        <p className={styles.difference}>{guess === answer
-          ? 'The guess matched the correct answer exactly.'
-          : success
-            ? <>The guess exceeded the correct answer by <strong>{difference}</strong>.</>
-            : <>The guess was <strong>{difference}</strong> below the correct answer.</>}</p>
+        <p className={styles.difference}>The guess exceeded the correct answer by <strong>{difference}</strong>.</p>
       </section>
 
       {(explanation || sourceLabel || src) && (

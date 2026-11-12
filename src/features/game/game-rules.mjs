@@ -1,8 +1,9 @@
 /** @typedef {{ id: string, value: number }} Guess */
 /** @typedef {{ id: number, question: string, answer: string | number, category?: string, explanation?: string, 'src-label'?: string, src?: string }} Question */
 /** @typedef {'playing' | 'result'} GamePhase */
-/** @typedef {{ success: boolean, guess: number, answer: number, question: Question }} ChallengeResult */
-/** @typedef {{ phase: GamePhase, questionIndex: number, isLocked: boolean, lockedAt: number | null, lastGuessAt: number | null, guesses: Guess[], challenge: ChallengeResult | null, roundError: string | null }} GameState */
+/** @typedef {{ success: true, guess: number, answer: number, question: Question }} ChallengeResult */
+/** @typedef {ChallengeResult | { success: false }} ChallengeOutcome */
+/** @typedef {{ phase: GamePhase, questionIndex: number, isLocked: boolean, lockedAt: number | null, lastGuessAt: number | null, guesses: Guess[], challenge: ChallengeOutcome | null, roundError: string | null }} GameState */
 /** @typedef {{ type: 'toggle-lock' | 'reset', now: number } | { type: 'select-question', index: number, total: number } | { type: 'guess', guess: Guess, now: number } | { type: 'challenge', question: Question, questionIndex: number } | { type: 'start-next-round', questions: Question[] }} GameAction */
 
 const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 20 });
@@ -55,10 +56,12 @@ export function canChallengeGuess(state, answer) {
   return state.phase === 'playing' && state.isLocked && lastGuess !== undefined && validateGuess(lastGuess.value) === null && Number.isFinite(answer);
 }
 
-/** Equality favors the guess. Call only with a validated question. @param {number} guess @param {Question} question @returns {ChallengeResult} */
+/** Equality favors the guess. Snapshot answers only on success. Call only with a validated question. @param {number} guess @param {Question} question @returns {ChallengeOutcome} */
 export function resolveChallenge(guess, question) {
   const answer = Number(question.answer);
-  return { success: guess > answer, guess, answer, question: { ...question } };
+  return guess > answer
+    ? { success: true, guess, answer, question: { ...question } }
+    : { success: false };
 }
 
 /** @returns {GameState} */
@@ -87,13 +90,14 @@ export function gameReducer(state, action) {
     case 'guess': {
       const previous = state.guesses.at(-1)?.value ?? null;
       if (!state.isLocked || validateGuess(action.guess.value, previous)) return state;
-      return { ...state, guesses: [...state.guesses, action.guess], lastGuessAt: action.now };
+      return { ...state, guesses: [...state.guesses, action.guess], lastGuessAt: action.now, challenge: null };
     }
     case 'challenge': {
       const lastGuess = state.guesses.at(-1);
       const answer = getQuestionAnswer(action.question);
       if (action.questionIndex !== state.questionIndex || answer === null || !lastGuess || !canChallengeGuess(state, answer)) return state;
-      return { ...state, phase: 'result', challenge: resolveChallenge(lastGuess.value, action.question) };
+      const challenge = resolveChallenge(lastGuess.value, action.question);
+      return { ...state, phase: challenge.success ? 'result' : 'playing', challenge };
     }
     case 'reset':
       if (!state.isLocked) return state;

@@ -7,7 +7,6 @@
 }
 
 .success { --outcome-color: var(--color-primary); }
-.failure { --outcome-color: var(--color-accent); }
 
 .hero {
   text-align: center;

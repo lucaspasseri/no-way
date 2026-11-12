@@ -59,9 +59,12 @@ associated error; display formatting never changes comparison values.
 
 A challenge requires the `playing` phase, a locked question, a valid latest guess, and a finite
 answer. It succeeds only when the latest guess exceeds the answer. Equality
-favors the guess. Both outcomes atomically enter `result` and capture the latest
-guess, numerical answer, outcome, and original question with its metadata. Every
-gameplay action is ignored after resolution, including queued guesses, reset,
+favors the guess. Only a successful challenge enters `result` and captures the latest
+guess, numerical answer, outcome, and original question with its metadata. A failed
+challenge stays in `playing`, preserving the question, guesses, lock, and timers.
+It stores only the unsuccessful outcome and shows nonblocking inline feedback;
+the next accepted guess clears that feedback. There is no penalty or turn switch.
+Every gameplay action is ignored after a successful challenge, including queued guesses, reset,
 unlock, question selection, and repeated challenges. Stale challenges for a
 previous question are rejected. The numerical answer is visible only in the result.
 
@@ -85,8 +88,8 @@ Question controls explain locking and navigation, while settings describe the
 scope and availability of reset. The live question count announces navigation,
 and history announces accepted guesses. A phase transition moves focus to the
 outcome heading (with its description), or to the new question heading when
-another round begins. Result icons and text distinguish both outcomes in addition
-to color. The result and comparison have brief, staggered entrances.
+another round begins. Failed challenges announce feedback through a polite status
+region without moving focus. The result and comparison have brief, staggered entrances.
 Motion respects reduced-motion preferences.
 The settings dropdown closes on Escape, an outside click, or focus leaving it;
 Escape returns focus to its header trigger.
@@ -95,9 +98,10 @@ Reset also closes the dropdown and returns focus to that trigger.
 ## Verification
 
 - `npm run lint` checks the repository.
-- `npm test` runs 30 tests covering validation, formatting, locking, queued
+- `npm test` covers validation, formatting, locking, queued
   guesses, invalid actions, question selection, reset preserving its question,
-  challenge availability, equality, result snapshots, stale challenges, frozen
+  challenge availability, failed challenges preserving gameplay and hiding answers,
+  equality, continued guessing after failure, result snapshots, stale challenges, frozen
   gameplay after resolution, next-round wraparound, repeated clicks, unavailable
   next questions and retries, optional metadata, and precise decimal differences.
 - The rules module can be checked with the installed TypeScript compiler:

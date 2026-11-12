@@ -32,7 +32,7 @@ export default function Game({ questions }) {
 				canReset={state.phase === "playing" && state.isLocked && state.guesses.length > 0}
 				onResetGuesses={game.resetGuesses}
 			/>
-			{state.phase === "result" ? (
+			{state.phase === "result" && state.challenge?.success ? (
 				<GameResult result={state.challenge} onNextRound={game.startNextRound} error={state.roundError} headingRef={headingRef} />
 			) : (
 				<>
@@ -51,6 +51,7 @@ export default function Game({ questions }) {
 							guesses={state.guesses}
 							isLocked={state.isLocked}
 							canChallenge={game.canChallenge}
+							challengeFailed={state.challenge?.success === false}
 							onSubmitGuess={game.submitGuess}
 							onChallenge={game.challengeGuess}
 						/>

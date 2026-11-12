@@ -116,8 +116,16 @@ describe('shared challenge behavior', () => {
   });
   it('succeeds only when the latest guess is greater than the answer', () => {
     assert.equal(resolveChallenge(149.7, question).success, true);
-    assert.equal(resolveChallenge(149.6, question).success, false);
-    assert.equal(resolveChallenge(149.5, question).success, false);
+    assert.deepEqual(resolveChallenge(149.6, question), { success: false });
+    assert.deepEqual(resolveChallenge(149.5, question), { success: false });
+  });
+  it('ends the round for 240 against 195 and reveals the comparison', () => {
+    const state = challenge(submit(lock(createGameState()), 240), 195);
+    assert.equal(state.phase, 'result');
+    assert.equal(state.challenge.success, true);
+    assert.equal(state.challenge.guess, 240);
+    assert.equal(state.challenge.answer, 195);
+    assert.equal(getGuessDifference(state.challenge.guess, state.challenge.answer), 45);
   });
   it('enters the result phase with the latest guess, answer and question, preserving round history', () => {
     const first = submit(lock(createGameState()), 100);
@@ -135,7 +143,7 @@ describe('shared challenge behavior', () => {
     assert.equal(challenge(state, 149.6), state);
   });
   it('prevents all gameplay actions after resolution, including a different challenge', () => {
-    const state = challenge(submit(lock(createGameState()), 100), 149.6);
+    const state = challenge(submit(lock(createGameState()), 200), 149.6);
     assert.equal(submit(state, 100), state);
     assert.equal(submit(state, 200), state);
     assert.equal(lock(state), state);
@@ -144,13 +152,53 @@ describe('shared challenge behavior', () => {
     assert.equal(challenge(state, 300), state);
     assert.equal(canChallengeGuess(state, 149.6), false);
   });
-  it('ends the round for failed and exact-match challenges too', () => {
-    for (const value of [100, 149.6]) {
-      const state = challenge(submit(lock(createGameState()), value));
-      assert.equal(state.phase, 'result');
-      assert.equal(state.challenge.success, false);
-      assert.equal(state.challenge.guess, value);
-      assert.equal(state.challenge.answer, 149.6);
+  for (const value of [150, 195]) {
+    it(`keeps playing after challenging ${value} against 195, preserving the round and hiding the answer`, () => {
+      const selected = gameReducer(createGameState(), { type: 'select-question', index: 1, total: 2 });
+      const first = submit(lock(selected), 100);
+      const before = submit(first, value, 3000);
+      const state = challenge(before, 195);
+      assert.deepEqual(state, { ...before, challenge: { success: false } });
+      assert.equal(state.guesses, before.guesses);
+      assert.equal(state.guesses.at(-1), before.guesses.at(-1));
+      assert.equal(canChallengeGuess(state, 195), true);
+      assert.equal(nextRound(state), state);
+      assert.deepEqual(challenge(state, 195), state);
+    });
+  }
+  it('allows later valid guesses and a successful challenge after a failed challenge', () => {
+    const state = challenge(submit(lock(createGameState()), 150), 195);
+    assert.equal(submit(state, 150), state);
+    const next = submit(state, 195, 3000);
+    assert.equal(next.phase, 'playing');
+    assert.equal(next.challenge, null);
+    assert.deepEqual(next.guesses.map(guess => guess.value), [150, 195]);
+    const failedAgain = challenge(next, 195);
+    const higher = submit(failedAgain, 240, 4000);
+    const result = challenge(higher, 195);
+    assert.equal(result.phase, 'result');
+    assert.equal(result.challenge.success, true);
+    assert.deepEqual(result.guesses.map(guess => guess.value), [150, 195, 240]);
+    assert.equal(submit(result, 250), result);
+    assert.deepEqual(nextRound(result), { ...createGameState(), questionIndex: 1 });
+  });
+  it('preserves reset, locking and question selection after a failed challenge', () => {
+    const state = challenge(submit(lock(createGameState()), 150), 195);
+    assert.equal(gameReducer(state, { type: 'select-question', index: 1, total: 2 }), state);
+    assert.deepEqual(gameReducer(state, { type: 'reset', now: 5000 }), {
+      ...createGameState(), isLocked: true, lockedAt: 5000,
+    });
+    const unlocked = lock(state);
+    assert.equal(unlocked.isLocked, false);
+    assert.equal(unlocked.guesses, state.guesses);
+    assert.deepEqual(gameReducer(unlocked, { type: 'select-question', index: 1, total: 2 }), {
+      ...createGameState(), questionIndex: 1,
+    });
+  });
+  it('keeps zero and decimal equality in play', () => {
+    for (const value of [0, 149.6]) {
+      const before = submit(lock(createGameState()), value);
+      assert.deepEqual(challenge(before, value), { ...before, challenge: { success: false } });
     }
   });
   it('rejects a stale question after a queued selection', () => {
