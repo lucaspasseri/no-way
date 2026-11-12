@@ -7,11 +7,8 @@ import random from "@/utils/random";
 import GuessSection from "../GuessSection";
 
 function Game({ questions }) {
-	console.log(questions);
 	const [currentQuestion, setCurrentQuestion] = React.useState(questions[0]);
 	const [isLocked, setIsLocked] = React.useState(false);
-
-	console.log({ currentQuestion });
 
 	function toggleLockQuestion() {
 		setIsLocked(prev => !prev);
@@ -31,12 +28,7 @@ function Game({ questions }) {
 			question => question.id !== currentQuestion.id,
 		);
 
-		console.log({ filteredQuestions });
-
 		const randomIndex = random(0, filteredQuestions.length);
-
-		console.log({ randomIndex });
-
 		setCurrentQuestion(filteredQuestions[randomIndex]);
 	}
 

@@ -11,6 +11,7 @@ function NewGuessSection({ lastGuess, handleNewGuess }) {
 		if (guess === "" || Number.isNaN(guessValue)) return;
 
 		handleNewGuess(guessValue);
+
 		setGuess("");
 	}
 

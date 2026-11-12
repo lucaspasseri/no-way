@@ -42,8 +42,6 @@ function QuestionPresentation({ questionArr }) {
 	}
 
 	function handleNOWAY() {
-		console.log({ answer, guessList });
-
 		if (guessList.length === 0) return;
 
 		const lastGuess = guessList[guessList.length - 1].value;
