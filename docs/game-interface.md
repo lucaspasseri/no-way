@@ -93,6 +93,9 @@ region without moving focus. The result and comparison have brief, staggered ent
 Motion respects reduced-motion preferences.
 The settings dropdown closes on Escape, an outside click, or focus leaving it;
 Escape returns focus to its header trigger.
+Focus dismissal requires a known destination outside the dropdown. Safari touch
+buttons can blur the trigger without receiving focus, so a null focus destination
+keeps the dropdown open long enough for theme and reset clicks to run.
 Reset also closes the dropdown and returns focus to that trigger.
 
 ## Verification

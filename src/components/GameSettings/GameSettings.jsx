@@ -35,7 +35,11 @@ export default function GameSettings({ canReset, onResetGuesses }) {
 
   return (
     <details className={styles.container} ref={settingsRef} onBlur={event => {
-      if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+      // Safari can blur the summary without focusing a tapped button. Keep it
+      // visible until the click lands; outside taps are handled by pointerdown.
+      if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+        event.currentTarget.open = false;
+      }
     }}>
       <summary aria-label='Game settings'>
         <Settings size={16} aria-hidden='true' />
