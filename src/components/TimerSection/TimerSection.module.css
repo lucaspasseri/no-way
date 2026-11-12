@@ -1,0 +1,6 @@
+.container {
+	border: 1px solid red;
+	margin-top: 2em;
+	display: flex;
+	justify-content: space-between;
+}

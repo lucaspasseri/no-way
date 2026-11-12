@@ -8,9 +8,14 @@ import GuessSection from "../GuessSection";
 
 function Game({ questions }) {
 	const [currentQuestion, setCurrentQuestion] = React.useState(questions[0]);
-	const [isLocked, setIsLocked] = React.useState(false);
+	const [isLocked, setIsLocked] = React.useState(null);
+	const [lockedInTime, setLockedInTime] = React.useState(null);
 
 	function toggleLockQuestion() {
+		if (isLocked === null) {
+			setLockedInTime(performance.now());
+		}
+
 		setIsLocked(prev => !prev);
 	}
 
@@ -30,6 +35,10 @@ function Game({ questions }) {
 
 		const randomIndex = random(0, filteredQuestions.length);
 		setCurrentQuestion(filteredQuestions[randomIndex]);
+	}
+
+	function resetLockedInTime() {
+		setLockedInTime(performance.now());
 	}
 
 	return (
@@ -53,7 +62,12 @@ function Game({ questions }) {
 				</div>
 			</QuestionCard>
 
-			<GuessSection isLocked={isLocked} currentQuestion={currentQuestion} />
+			<GuessSection
+				isLocked={isLocked}
+				lockedInTime={lockedInTime}
+				resetLockedInTime={resetLockedInTime}
+				currentQuestion={currentQuestion}
+			/>
 		</div>
 	);
 }

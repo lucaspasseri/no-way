@@ -4,9 +4,16 @@ import LastGuessSection from "../LastGuessSection";
 import NewGuessSection from "../NewGuessSection";
 import GuessesList from "../GuessesList";
 import { ToastContext } from "../ToastProvider";
+import TimerSection from "../TimerSection";
 
-function GuessSection({ isLocked, currentQuestion }) {
+function GuessSection({
+	isLocked,
+	lockedInTime,
+	resetLockedInTime,
+	currentQuestion,
+}) {
 	const [guesses, setGuesses] = React.useState([]);
+	const [sinceLastGuessTime, setSinceLastGuessTime] = React.useState(null);
 	const { addToast } = React.useContext(ToastContext);
 
 	if (!isLocked) {
@@ -25,6 +32,7 @@ function GuessSection({ isLocked, currentQuestion }) {
 			value: guessValue,
 		};
 
+		setSinceLastGuessTime(performance.now());
 		setGuesses(prev => [...prev, newGuess]);
 	}
 
@@ -42,8 +50,21 @@ function GuessSection({ isLocked, currentQuestion }) {
 		addToast(message, variant);
 	}
 
+	function resetGame() {
+		setGuesses([]);
+		resetLockedInTime();
+		setSinceLastGuessTime(null);
+	}
+
 	return (
 		<div className={styles.container}>
+			<TimerSection
+				lockedInTime={lockedInTime}
+				sinceLastGuessTime={sinceLastGuessTime}
+			>
+				<button onClick={resetGame}>Reset guesses</button>
+			</TimerSection>
+
 			<div className={styles.main}>
 				<LastGuessSection lastGuess={lastGuess} handleNOWAY={handleNOWAY} />
 				<NewGuessSection
