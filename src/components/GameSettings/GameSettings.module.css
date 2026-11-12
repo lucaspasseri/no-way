@@ -1,4 +1,6 @@
 .container {
+  position: relative;
+  flex-shrink: 0;
   min-width: 0;
 }
 
@@ -8,6 +10,7 @@
   gap: 8px;
   width: fit-content;
   min-height: 44px;
+  padding: 8px 10px;
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 650;
@@ -21,7 +24,15 @@
 .container[open] .chevron { transform: rotate(180deg); }
 
 .content {
-  padding-top: 8px;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(300px, calc(100vw - 40px));
+  padding: 16px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-card);
+  box-shadow: 0 8px 24px rgb(30 27 46 / 16%);
 }
 
 .actions {

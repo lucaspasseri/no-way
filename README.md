@@ -2,7 +2,7 @@
 
 A number-guessing game built with Next.js App Router, React, JavaScript,
 and CSS Modules. Browse the question bank, lock a question, submit increasing
-guesses, and challenge the latest guess to reveal the answer.
+guesses, and challenge the latest guess to check whether it is too high.
 
 ## Development
 
@@ -13,8 +13,11 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). The question card contains
 Lock/Unlock, Next Question, and Random Question. Enter a new guess below it or
-use Doubt Guess beside the latest guess. Expand Game settings below the playing
-area to switch themes or reset guesses immediately.
+use Doubt Guess directly below the latest guess. Open Settings in the header
+to switch themes or reset guesses immediately. Numerical answers stay hidden
+during play. A challenge ends the round and reveals the answer, comparison,
+and available reference information on a dedicated Result screen. Choose
+Play another round to advance to the next question, then lock it to begin.
 
 ## Checks
 
@@ -24,7 +27,7 @@ npm test
 npm run build
 ```
 
-The 20 game-rule tests use Node's built-in test runner and need no additional
+The 30 game-rule tests use Node's built-in test runner and need no additional
 test dependency. Fredoka and Plus Jakarta Sans use `next/font/google`, which
 requires Google Fonts to be reachable during a clean build.
 
@@ -37,5 +40,5 @@ requires Google Fonts to be reachable during a clean build.
 - Game UI: `src/components/Game` and its sibling components
 - Question bank: `src/data/questions.json`
 
-Player sessions, synchronization, scoring, and automatic round progression are
+Player sessions, synchronization, scoring, and timed round progression are
 not implemented. The UI makes no claims about players or network connections.

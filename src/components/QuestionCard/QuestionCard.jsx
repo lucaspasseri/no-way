@@ -2,8 +2,8 @@ import { ArrowRight, BookOpen, ExternalLink, Lock, Shuffle, Unlock } from 'react
 import BigLetter from '../BigLetter';
 import styles from './QuestionCard.module.css';
 
-/** @param {{ currentQuestion: import('@/features/game/game-rules.mjs').Question, isLocked: boolean, canChangeQuestion: boolean, onToggleLock: () => void, onNextQuestion: () => void, onRandomQuestion: () => void }} props */
-export default function QuestionCard({ currentQuestion, isLocked, canChangeQuestion, onToggleLock, onNextQuestion, onRandomQuestion }) {
+/** @param {{ currentQuestion: import('@/features/game/game-rules.mjs').Question, isLocked: boolean, canChangeQuestion: boolean, onToggleLock: () => void, onNextQuestion: () => void, onRandomQuestion: () => void, headingRef: import('react').RefObject<HTMLHeadingElement | null> }} props */
+export default function QuestionCard({ currentQuestion, isLocked, canChangeQuestion, onToggleLock, onNextQuestion, onRandomQuestion, headingRef }) {
   const { id, question, category, 'src-label': sourceLabel, src } = currentQuestion;
   return (
     <section className={styles.container} aria-labelledby='question-title'>
@@ -20,7 +20,7 @@ export default function QuestionCard({ currentQuestion, isLocked, canChangeQuest
               </span>
             </div>
           </div>
-          <h2 id='question-title'>{question}</h2>
+          <h2 id='question-title' ref={headingRef} tabIndex={-1}>{question}</h2>
         </div>
       </div>
       {(sourceLabel || src) && <div className={styles.source}>
@@ -42,7 +42,7 @@ export default function QuestionCard({ currentQuestion, isLocked, canChangeQuest
         </div>
         <p id='question-controls-hint'>{isLocked
           ? 'Question locked. Unlock to change questions; your guesses will be kept until you change the question.'
-          : 'Lock to start guessing. Choosing a different question clears guesses and the revealed answer.'}</p>
+          : 'Lock to start guessing. Choosing a different question clears guesses and the challenge result.'}</p>
       </footer>
     </section>
   );

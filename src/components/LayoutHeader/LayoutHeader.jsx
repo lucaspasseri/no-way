@@ -1,7 +1,8 @@
+import GameSettings from "../GameSettings";
 import styles from "./LayoutHeader.module.css";
 
-/** @param {{ questionNumber: number, totalQuestions: number }} props */
-export default function LayoutHeader({ questionNumber, totalQuestions }) {
+/** @param {{ questionNumber: number, totalQuestions: number, canReset: boolean, onResetGuesses: () => void }} props */
+export default function LayoutHeader({ questionNumber, totalQuestions, canReset, onResetGuesses }) {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
@@ -11,6 +12,7 @@ export default function LayoutHeader({ questionNumber, totalQuestions }) {
           <p role='status'>Question {questionNumber} of {totalQuestions}</p>
         </div>
       </div>
+      <GameSettings canReset={canReset} onResetGuesses={onResetGuesses} />
     </header>
   );
 }

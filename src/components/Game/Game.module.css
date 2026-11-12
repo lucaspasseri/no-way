@@ -13,8 +13,6 @@
 }
 
 .footer {
-  display: grid;
-  gap: 16px;
   padding: 16px 32px;
   border-top: 1px solid var(--color-outline);
   font-size: 11px;

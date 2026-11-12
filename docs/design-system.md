@@ -50,11 +50,20 @@ styling, `button-danger` marks destructive or challenge entry points, and
 `button-challenge` gives the contextual Doubt Guess control a solid red fill.
 Buttons have a 44px minimum touch target; component styles adjust spacing and
 shape. Question controls use a subtle card footer toolbar. The theme toggle and
-reset button live in the compact, collapsible Game settings section below play.
+reset button live in the compact Game settings dropdown in the header.
+The latest guess and its Doubt button are stacked vertically.
 
 `.surface-enter` animates question changes. `.number-pulse` marks a new
 highest guess. Reduced-motion preferences suppress these animations,
 transitions, and pressed movement.
+
+`GameResult` uses a centered 760px content width within the existing shell.
+The outcome hero uses an indigo check for a successful challenge and an amber
+cross for a failed challenge. Labeled comparison cards use large tabular
+numerals; the correct answer uses the existing indigo surface tint. Cards sit
+side by side and stack below 360px. Reference information stays secondary,
+and the primary next-round button is full-width on mobile. The result enters
+over 240ms with a 70ms comparison delay; reduced motion removes both animations.
 
 Forms, cards, empty states, validation, and status labels use their component
 CSS Modules. There are no unused opt-in card, field, tag, or typography classes.

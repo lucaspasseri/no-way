@@ -1,5 +1,5 @@
 import { useReducer } from 'react';
-import { canChallengeGuess, createGameState, gameReducer } from './game-rules.mjs';
+import { canChallengeGuess, createGameState, gameReducer, getQuestionAnswer } from './game-rules.mjs';
 
 /** @param {import('./game-rules.mjs').Question[]} questions */
 export default function useGame(questions) {
@@ -19,10 +19,11 @@ export default function useGame(questions) {
   }
   return {
     state, currentQuestion, nextQuestion, randomQuestion,
-    canChallenge: canChallengeGuess(state, Number(currentQuestion?.answer)),
+    canChallenge: canChallengeGuess(state, getQuestionAnswer(currentQuestion)),
     toggleLock: () => dispatch({ type: 'toggle-lock', now: performance.now() }),
     resetGuesses: () => dispatch({ type: 'reset', now: performance.now() }),
     submitGuess: value => dispatch({ type: 'guess', guess: { id: crypto.randomUUID(), value }, now: performance.now() }),
-    challengeGuess: () => dispatch({ type: 'challenge', answer: Number(currentQuestion?.answer) }),
+    challengeGuess: () => dispatch({ type: 'challenge', question: currentQuestion, questionIndex: state.questionIndex }),
+    startNextRound: () => dispatch({ type: 'start-next-round', questions }),
   };
 }

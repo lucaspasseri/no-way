@@ -1,0 +1,167 @@
+.container {
+  width: min(100%, 760px);
+  min-width: 0;
+  margin-inline: auto;
+  padding: 28px 40px 32px;
+  animation: result-enter var(--duration-enter) var(--ease-enter) both;
+}
+
+.success { --outcome-color: var(--color-primary); }
+.failure { --outcome-color: var(--color-accent); }
+
+.hero {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.outcomeIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--outcome-color) 10%, var(--color-surface));
+  color: var(--outcome-color);
+}
+
+.eyebrow {
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.6;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero h2 {
+  width: fit-content;
+  margin: 6px auto 8px;
+  border-radius: var(--radius-sm);
+  color: var(--outcome-color);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  line-height: 1.2;
+}
+
+.hero > p:last-child {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.comparison {
+  animation: result-enter var(--duration-enter) var(--ease-enter) 70ms both;
+}
+
+.comparison h3 {
+  margin-top: 6px;
+  font-size: 21px;
+  line-height: 1.4;
+}
+
+.numbers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.numbers > div {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-md);
+}
+
+.guessCard { background: var(--color-surface-card); }
+.numbers .answerCard {
+  background: var(--color-primary-background);
+  border-color: var(--color-primary-border);
+}
+
+.numbers dt {
+  margin-bottom: 8px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.numbers dd {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.answerCard dd { color: var(--color-primary); }
+
+.difference {
+  margin-top: 14px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.difference strong { font-variant-numeric: tabular-nums; }
+
+.explanation {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-outline);
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.explanation h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.source { font-size: 12px; }
+.source a { overflow-wrap: anywhere; }
+.source svg { display: inline; margin-left: 5px; }
+
+.actions {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.error { color: var(--color-error-text); text-align: center; }
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@keyframes result-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 699px) {
+  .container { padding: 24px 20px 32px; }
+  .hero { margin-bottom: 24px; }
+  .comparison h3 { font-size: 19px; }
+  .numbers > div { padding: 16px 14px; }
+  .actions > button { width: 100%; }
+}
+
+@media (max-width: 359px) {
+  .numbers { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container, .comparison { animation: none; }
+}
