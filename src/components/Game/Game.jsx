@@ -8,15 +8,23 @@ import GuessSection from "../GuessSection";
 
 function Game({ questions }) {
 	const [currentQuestion, setCurrentQuestion] = React.useState(questions[0]);
-	const [isLocked, setIsLocked] = React.useState(null);
+	const [isLocked, setIsLocked] = React.useState(false);
 	const [lockedInTime, setLockedInTime] = React.useState(null);
 
 	function toggleLockQuestion() {
-		if (isLocked === null) {
+		if (!isLocked && lockedInTime === null) {
 			setLockedInTime(performance.now());
 		}
 
 		setIsLocked(prev => !prev);
+	}
+
+	function selectQuestion(nextQuestion) {
+		if (isLocked || nextQuestion.id === currentQuestion.id) return;
+
+		setCurrentQuestion(nextQuestion);
+		setIsLocked(false);
+		setLockedInTime(null);
 	}
 
 	function handleNextQuestion() {
@@ -25,7 +33,7 @@ function Game({ questions }) {
 		if (index === -1 || isLocked) return;
 
 		const nextQuestionIndex = index === questions.length - 1 ? 0 : index + 1;
-		setCurrentQuestion(questions[nextQuestionIndex]);
+		selectQuestion(questions[nextQuestionIndex]);
 	}
 
 	function handleRandomQuestion() {
@@ -33,8 +41,10 @@ function Game({ questions }) {
 			question => question.id !== currentQuestion.id,
 		);
 
+		if (filteredQuestions.length === 0) return;
+
 		const randomIndex = random(0, filteredQuestions.length);
-		setCurrentQuestion(filteredQuestions[randomIndex]);
+		selectQuestion(filteredQuestions[randomIndex]);
 	}
 
 	function resetLockedInTime() {
@@ -63,6 +73,7 @@ function Game({ questions }) {
 			</QuestionCard>
 
 			<GuessSection
+				key={currentQuestion.id}
 				isLocked={isLocked}
 				lockedInTime={lockedInTime}
 				resetLockedInTime={resetLockedInTime}

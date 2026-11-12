@@ -7,7 +7,7 @@ function TimerSection({ lockedInTime, sinceLastGuessTime, children }) {
 	React.useEffect(() => {
 		const intervalId = setInterval(() => {
 			setCurrTime(performance.now());
-		}, 1000);
+		}, 100);
 
 		return () => clearInterval(intervalId);
 	}, [lockedInTime]);
