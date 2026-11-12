@@ -1,38 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# No Way — Party Trivia
 
-## Getting Started
+A number-guessing game built with Next.js App Router, React, JavaScript,
+and CSS Modules. Browse the question bank, lock a question, submit increasing
+guesses, and challenge the latest guess to reveal the answer.
 
-First, run the development server:
+## Development
 
-```bash
+```sh
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [localhost:3000](http://localhost:3000). The question card contains
+Lock/Unlock, Next Question, and Random Question. Enter a new guess below it or
+use Doubt Guess beside the latest guess. Expand Game settings below the playing
+area to switch themes or reset guesses immediately.
 
-You can start editing the page by modifying `src/app/page.js`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses `next/font` to optimize and self-host Fredoka for headings and Plus Jakarta Sans for body text. Google Fonts must be reachable during the build.
+```sh
+npm run lint
+npm test
+npm run build
+```
 
-The [No Way design system](docs/design-system.md) documents the extracted palette, typography, spacing, themes, and reusable CSS classes.
+The 20 game-rule tests use Node's built-in test runner and need no additional
+test dependency. Fredoka and Plus Jakarta Sans use `next/font/google`, which
+requires Google Fonts to be reachable during a clean build.
 
-## Learn More
+## Code and behavior
 
-To learn more about Next.js, take a look at the following resources:
+- [Architecture, rules, verification, and limitations](docs/game-interface.md)
+- [Design tokens and shared styles](docs/design-system.md)
+- Rules and reducer: `src/features/game/game-rules.mjs`
+- React state adapter: `src/features/game/useGame.js`
+- Game UI: `src/components/Game` and its sibling components
+- Question bank: `src/data/questions.json`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Player sessions, synchronization, scoring, and automatic round progression are
+not implemented. The UI makes no claims about players or network connections.

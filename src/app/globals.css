@@ -22,13 +22,14 @@ body {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	background: var(--color-surface-card);
+	background: var(--color-backdrop);
 	color: var(--color-on-surface-card);
 	font-family: var(--font-body);
 	font-size: var(--text-body-md);
 	line-height: var(--leading-body-md);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	padding-inline: 24px;
 }
 
 button,
@@ -36,6 +37,24 @@ input,
 select,
 textarea {
 	font: inherit;
+}
+
+button:disabled, input:disabled {
+	cursor: not-allowed;
+}
+
+button:disabled { opacity: .45; }
+
+@media (max-width: 699px) {
+	body { padding-inline: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
 }
 
 button,
@@ -73,8 +92,7 @@ a {
 	color: var(--color-on-primary);
 }
 
-h1,
-.display-lg {
+h1 {
 	font-family: var(--font-display);
 	font-size: var(--text-display-lg);
 	font-weight: 700;
@@ -82,16 +100,14 @@ h1,
 	letter-spacing: var(--tracking-display-lg);
 }
 
-h2,
-.headline-lg {
+h2 {
 	font-family: var(--font-display);
 	font-size: var(--text-headline-lg);
 	font-weight: 600;
 	line-height: var(--leading-headline-lg);
 }
 
-h3,
-.headline-md {
+h3 {
 	font-family: var(--font-display);
 	font-size: var(--text-headline-md);
 	font-weight: 600;
@@ -103,40 +119,4 @@ h2,
 h3,
 p {
 	overflow-wrap: anywhere;
-}
-
-.body-lg,
-.body-md,
-.label-lg,
-.label-sm {
-	font-family: var(--font-body);
-}
-
-.body-lg {
-	font-size: var(--text-body-lg);
-	font-weight: 400;
-	line-height: var(--leading-body-lg);
-}
-
-.body-md {
-	font-size: var(--text-body-md);
-	font-weight: 400;
-	line-height: var(--leading-body-md);
-}
-
-.label-lg {
-	font-size: var(--text-label-lg);
-	font-weight: 600;
-	line-height: var(--leading-label-lg);
-}
-
-.label-sm {
-	font-size: var(--text-label-sm);
-	font-weight: 600;
-	line-height: var(--leading-label-sm);
-}
-
-.number-display {
-	font-family: var(--font-display);
-	font-variant-numeric: tabular-nums;
 }

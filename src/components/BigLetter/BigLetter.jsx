@@ -1,11 +1,10 @@
-import React from "react";
 import styles from "./BigLetter.module.css";
 
 function BigLetter({ letter }) {
 	return (
-		<div className={styles.container}>
+		<div className={styles.container} aria-hidden='true'>
 			<div className={styles.letter}>
-				<h2>{letter ? letter : "Q"}</h2>
+				<span>{letter || "Q"}</span>
 			</div>
 		</div>
 	);

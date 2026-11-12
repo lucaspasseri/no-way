@@ -1,2 +1,1 @@
-export * from './LastGuessSection';
-export { default } from './LastGuessSection';
+export { default } from "./LastGuessSection";

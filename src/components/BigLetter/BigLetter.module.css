@@ -1,21 +1,18 @@
 .container {
-	border: var(--border-width) solid;
-	background-color: var(--color-primary-background);
-	border-color: var(--color-primary-border);
-	border-radius: var(--radius-lg);
-	padding: var(--space-sm);
-	width: 4.2rem;
-	aspect-ratio: 1 / 1;
-	flex-shrink: 0;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	height: fit-content;
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--color-primary-border);
+  border-radius: 15px;
+  background: var(--color-primary-background);
+  color: var(--color-primary);
 }
 
-.letter h2 {
-	font-size: 3em;
-	line-height: 1;
-	color: var(--color-primary);
-	display: block;
+.letter span {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1;
 }

@@ -1,18 +1,17 @@
 "use client";
-import React from "react";
+
+import { useContext } from "react";
+import { Moon, Sun } from "react-feather";
 import { ThemeContext } from "../ThemeProvider";
 import styles from "./ToggleTheme.module.css";
 
-function ToggleTheme() {
-	const { theme, toggleTheme } = React.useContext(ThemeContext);
-
-	return (
-		<div>
-			<button className={styles.button} onClick={toggleTheme}>
-				{theme}
-			</button>
-		</div>
-	);
+export default function ToggleTheme() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
+  const label = "Switch to " + (theme === "light" ? "dark" : "light") + " mode";
+  return (
+    <button className={styles.button} onClick={toggleTheme} aria-label={label} title={label} aria-pressed={theme === "dark"}>
+      {theme === "light" ? <Moon size={17} aria-hidden='true' /> : <Sun size={17} aria-hidden='true' />}
+      <span>Theme</span>
+    </button>
+  );
 }
-
-export default ToggleTheme;

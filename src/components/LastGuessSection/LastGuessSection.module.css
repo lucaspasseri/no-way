@@ -1,15 +1,51 @@
 .container {
-	background-color: var(--color-surface-dim);
-	padding: 0.8em;
-	border-radius: var(--radius-default);
-	border: var(--border-width) solid var(--color-outline);
-	box-shadow: var(--shadow-card);
-	width: fit-content;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-background);
 }
-
-.lastGuess {
-	display: flex;
-	gap: 2em;
-	align-items: end;
-	flex-wrap: wrap;
+.guess { min-width: 0; }
+.guess h2 {
+  margin-bottom: 5px;
+  font-family: var(--font-body);
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+.value {
+  display: block;
+  max-width: 100%;
+  font-family: var(--font-display);
+  color: var(--color-primary);
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -.03em;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.empty {
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.container button {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+.container button svg { flex-shrink: 0; }
+@media (max-width: 359px) {
+  .container { gap: 12px; padding: 16px; }
+  .container button { padding: 10px; font-size: 10px; }
+  .value { font-size: 30px; }
 }

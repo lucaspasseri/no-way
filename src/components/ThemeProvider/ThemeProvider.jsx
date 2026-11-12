@@ -4,7 +4,7 @@ import React from "react";
 export const ThemeContext = React.createContext();
 
 function ThemeProvider({ children }) {
-	const [theme, setTheme] = React.useState("dark");
+	const [theme, setTheme] = React.useState("light");
 
 	React.useEffect(() => {
 		document.documentElement.dataset.theme = theme;

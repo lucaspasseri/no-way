@@ -1,2 +1,1 @@
-export * from './QuestionCard';
-export { default } from './QuestionCard';
+export { default } from "./QuestionCard";

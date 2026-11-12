@@ -1,6 +1,24 @@
 .container {
-	border: 1px solid red;
-	margin-top: 2em;
-	display: flex;
-	justify-content: space-between;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 10px;
+}
+
+.container svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.container strong {
+  color: var(--color-on-surface);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lastGuess {
+  padding-left: 10px;
+  border-left: 1px solid var(--color-outline);
+  margin-left: 3px;
 }

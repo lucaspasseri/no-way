@@ -1,80 +1,36 @@
-import React from "react";
-import styles from "./GuessSection.module.css";
+import { CheckCircle, Info } from "react-feather";
+import GuessInput from "../GuessInput";
 import LastGuessSection from "../LastGuessSection";
-import NewGuessSection from "../NewGuessSection";
 import GuessesList from "../GuessesList";
-import { ToastContext } from "../ToastProvider";
-import TimerSection from "../TimerSection";
+import { formatNumber } from "@/features/game/game-rules.mjs";
+import styles from "./GuessSection.module.css";
 
-function GuessSection({
-	isLocked,
-	lockedInTime,
-	resetLockedInTime,
-	currentQuestion,
-}) {
-	const [guesses, setGuesses] = React.useState([]);
-	const [sinceLastGuessTime, setSinceLastGuessTime] = React.useState(null);
-	const { addToast } = React.useContext(ToastContext);
-
-	if (!isLocked) {
-		return null;
-	}
-
-	const lastGuess = guesses.length === 0 ? null : guesses[guesses.length - 1];
-
-	function handleNewGuess(guessValue) {
-		if (guessValue <= lastGuess?.value) {
-			return;
-		}
-
-		const newGuess = {
-			id: crypto.randomUUID(),
-			value: guessValue,
-		};
-
-		setSinceLastGuessTime(performance.now());
-		setGuesses(prev => [...prev, newGuess]);
-	}
-
-	function handleNOWAY() {
-		if (lastGuess === null) return;
-
-		const underTheLimite = lastGuess.value <= Number(currentQuestion.answer);
-
-		const message = underTheLimite
-			? `${lastGuess.value} is less than or equal to the answer.`
-			: `${lastGuess.value} is greater than the answer.`;
-
-		const variant = underTheLimite ? "error" : "success";
-
-		addToast(message, variant);
-	}
-
-	function resetGame() {
-		setGuesses([]);
-		resetLockedInTime();
-		setSinceLastGuessTime(null);
-	}
-
-	return (
-		<div className={styles.container}>
-			<TimerSection
-				lockedInTime={lockedInTime}
-				sinceLastGuessTime={sinceLastGuessTime}
-			>
-				<button onClick={resetGame}>Reset guesses</button>
-			</TimerSection>
-
-			<div className={styles.main}>
-				<LastGuessSection lastGuess={lastGuess} handleNOWAY={handleNOWAY} />
-				<NewGuessSection
-					lastGuess={lastGuess}
-					handleNewGuess={handleNewGuess}
-				/>
-			</div>
-			<GuessesList list={guesses} />
-		</div>
-	);
+/** @param {Pick<import('@/features/game/game-rules.mjs').GameState, 'guesses' | 'isLocked' | 'challenge'> & { canChallenge: boolean, onSubmitGuess: (value: number) => void, onChallenge: () => void }} props */
+export default function GuessSection({ guesses, isLocked, challenge, canChallenge, onSubmitGuess, onChallenge }) {
+  const lastGuess = guesses.at(-1) ?? null;
+  return (
+    <div className={styles.container}>
+      <div className={styles.playFlow}>
+        <GuessInput addGuess={onSubmitGuess} previousGuess={lastGuess?.value ?? null} disabled={!isLocked} />
+        <LastGuessSection lastGuess={lastGuess} canChallenge={canChallenge} onChallenge={onChallenge} />
+        <div className={styles.announcement} role='status' aria-atomic='true'>
+          {challenge && <section className={styles.result + " surface-enter"} aria-labelledby='result-title'>
+            {challenge.success ? <CheckCircle size={20} aria-hidden='true' /> : <Info size={20} aria-hidden='true' />}
+            <div>
+              <h2 id='result-title'>{challenge.success ? "Good call! That guess is too high." : "That guess holds up!"}</h2>
+              <p>{formatNumber(challenge.guess)} is {challenge.success ? "greater than" : "less than or equal to"} the answer.</p>
+              <p className={styles.answer}>The answer: <strong>{formatNumber(challenge.answer)}</strong></p>
+            </div>
+          </section>}
+        </div>
+      </div>
+      <section className={styles.leaderboard} aria-labelledby='guesses-heading'>
+        <div className={styles.heading}>
+          <h2 id='guesses-heading'>Guess history</h2>
+          <span>{guesses.length} {guesses.length === 1 ? "guess" : "guesses"} placed</span>
+        </div>
+        <GuessesList list={guesses} />
+      </section>
+    </div>
+  );
 }
-
-export default GuessSection;

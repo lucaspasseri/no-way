@@ -1,16 +1,16 @@
-import React from "react";
 import styles from "./LayoutHeader.module.css";
-import ToggleTheme from "../ToggleTheme";
 
-function LayoutHeader() {
-	return (
-		<header className={styles.header}>
-			<div className={styles.logo}></div>
-			<div className={styles.menu}>
-				<ToggleTheme />
-			</div>
-		</header>
-	);
+/** @param {{ questionNumber: number, totalQuestions: number }} props */
+export default function LayoutHeader({ questionNumber, totalQuestions }) {
+  return (
+    <header className={styles.header}>
+      <div className={styles.brand}>
+        <span className={styles.logo} aria-hidden='true'>!</span>
+        <div>
+          <h1>No Way</h1>
+          <p role='status'>Question {questionNumber} of {totalQuestions}</p>
+        </div>
+      </div>
+    </header>
+  );
 }
-
-export default LayoutHeader;

@@ -1,0 +1,45 @@
+.container {
+  min-width: 0;
+}
+
+.container summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 44px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius-sm);
+}
+
+.container summary::-webkit-details-marker { display: none; }
+.container summary:hover { color: var(--color-primary); }
+.container[open] .chevron { transform: rotate(180deg); }
+
+.content {
+  padding-top: 8px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.content p {
+  max-width: 65ch;
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}

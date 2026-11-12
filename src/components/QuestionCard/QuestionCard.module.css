@@ -1,53 +1,187 @@
 .container {
-	border-radius: var(--radius-default);
-	background-color: var(--color-surface-card);
-	box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
 .main {
-	border: var(--border-width) solid var(--color-outline);
-	display: flex;
-	gap: 1em;
-	padding: 1.6em;
-	border-top-left-radius: var(--radius-default);
-	border-top-right-radius: var(--radius-default);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px;
 }
 
-.questionAndDetailsContainer {
-	width: 100%;
-	display: flex;
-	flex-direction: column;
+.questionAndDetails {
+  flex: 1;
+  min-width: 0;
 }
 
 .details {
-	display: flex;
-	justify-content: space-between;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
-.questionContainer {
+.metadata, .status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.questionContainer p {
-	font-size: 1.9em;
-	line-height: 1.3;
-	font-weight: bold;
-	font-family: var(--font-display);
+.metadata {
+  gap: 12px;
+  margin-left: auto;
+  color: var(--color-muted);
 }
 
-.sourceContainer {
-	background-color: var(--color-surface-dim);
-	padding: 0.8em;
-	border-bottom-left-radius: var(--radius-default);
-	border-bottom-right-radius: var(--radius-default);
-	border: var(--border-width) solid var(--color-outline);
+.status {
+  font-size: 10px;
+  font-weight: 650;
+}
 
-	a {
-		margin-left: 0.4em;
-	}
+.category {
+  width: fit-content;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-background);
+  color: var(--color-primary);
+  font-weight: 800;
 }
 
 .questionNumber {
-	font-size: 1.4em;
-	color: var(--color-on-surface);
-	font-weight: 700;
+  color: var(--color-muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.questionAndDetails h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -.015em;
+}
+
+.source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 22px 18px;
+}
+
+.footer {
+  padding: 14px 22px;
+  border-top: 1px solid var(--color-outline);
+  background: color-mix(in srgb, var(--color-surface-dim) 45%, var(--color-surface-card));
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.actions svg {
+  flex-shrink: 0;
+}
+
+.actions button[aria-pressed='true'] {
+  --button-background: var(--color-primary-background);
+  --button-foreground: var(--color-primary);
+  border-color: var(--color-primary-border);
+}
+
+.footer p {
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.source > svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.source p {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.source p > span {
+  color: var(--color-on-surface);
+  font-weight: 600;
+}
+
+.source a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.source a:hover {
+  text-decoration: underline;
+  color: var(--color-primary);
+}
+
+.source a svg {
+  display: inline;
+  vertical-align: middle;
+  margin-left: 5px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 799px) {
+  .main {
+    padding: 20px;
+    gap: 12px;
+  }
+  .questionAndDetails h2 {
+    font-size: 20px;
+    line-height: 1.35;
+  }
+}
+
+@media (max-width: 359px) {
+  .main {
+    padding: 16px;
+    gap: 10px;
+  }
+  .questionAndDetails h2 {
+    font-size: 20px;
+  }
+  .details {
+    gap: 5px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 479px) {
+  .footer { padding: 14px 16px; }
+  .actions button { flex: 1; padding-inline: 10px; }
+  .actions button:first-child { flex-basis: 100%; }
+  .source { padding-inline: 16px; }
 }

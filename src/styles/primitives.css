@@ -1,20 +1,6 @@
-/* Opt-in shared styles. Use CSS Modules for individual component layouts. */
-.card {
-  padding: var(--space-lg);
-  border: var(--border-width) solid var(--color-outline);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-card);
-  color: var(--color-on-surface-card);
-}
-
-.card-elevated {
-  box-shadow: var(--shadow-card);
-}
-
 .button {
   --button-background: var(--color-primary);
-  --button-color: var(--color-on-primary);
-
+  --button-foreground: var(--color-on-primary);
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -26,7 +12,7 @@
     color-mix(in srgb, var(--button-background), #000 25%);
   border-radius: var(--radius-full);
   background: var(--button-background);
-  color: var(--button-color);
+  color: var(--button-foreground);
   font-size: var(--text-label-lg);
   font-weight: 600;
   line-height: var(--leading-label-lg);
@@ -38,19 +24,19 @@
     filter var(--duration-state) var(--ease-state);
 }
 
-.button-doubt {
-  --button-background: var(--color-doubt);
-  --button-color: var(--color-on-doubt);
+.button-secondary {
+  --button-background: var(--color-surface-card);
+  --button-foreground: var(--color-on-surface);
+  border: 1px solid var(--color-outline);
 }
 
-.button-accent {
-  --button-background: var(--color-sunshine);
-  --button-color: #1c1c1c;
+.button-danger {
+  --button-foreground: var(--color-error-text);
 }
 
-.button-icon {
-  width: 44px;
-  padding: var(--space-sm);
+.button-challenge {
+  --button-background: var(--color-brand);
+  --button-foreground: #ffffff;
 }
 
 .button:active:not(:disabled) {
@@ -68,87 +54,12 @@
   }
 }
 
-.field {
-  display: grid;
-  gap: var(--space-sm);
-}
-
-.field-label {
-  font-size: var(--text-label-lg);
-  font-weight: 600;
-  line-height: var(--leading-label-lg);
-}
-
-.input {
-  width: 100%;
-  min-width: 0;
-  min-height: 48px;
-  padding: var(--space-sm) var(--space-md);
-  border: var(--border-width) solid var(--color-outline);
-  border-radius: var(--radius-default);
-  background: var(--color-surface-card);
-  color: var(--color-on-surface-card);
-  /* Keep mobile browsers from zooming when a field receives focus. */
-  font-size: 1rem;
-  transition: border-color var(--duration-state) var(--ease-state);
-}
-
-.input::placeholder {
-  color: color-mix(in srgb, var(--color-on-surface-card) 70%, var(--color-surface-card));
-}
-
-.input:focus {
-  border-color: var(--color-primary);
-}
-
-.input[aria-invalid="true"] {
-  border-color: var(--color-doubt);
-}
-
-.input:disabled {
-  background: var(--color-surface-dim);
-  cursor: not-allowed;
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-full);
-  background: var(--color-surface-dim);
-  color: var(--color-on-surface);
-  font-size: var(--text-label-sm);
-  font-weight: 600;
-  line-height: var(--leading-label-sm);
-}
-
-.tag-turn {
-  background: var(--color-sunshine);
-  color: #1c1c1c;
-}
-
-.tag-doubt {
-  background: var(--color-doubt);
-  color: var(--color-on-doubt);
-}
-
-.tag-correct {
-  background: var(--color-correct);
-  color: var(--color-on-correct);
-}
-
-/* Apply these classes when the associated game state changes. */
 .surface-enter {
   animation: surface-enter var(--duration-enter) var(--ease-enter);
 }
 
 .number-pulse {
   animation: number-pulse var(--duration-enter) var(--ease-state);
-}
-
-.doubt-shake {
-  animation: doubt-shake var(--duration-enter) var(--ease-state);
 }
 
 @keyframes surface-enter {
@@ -168,20 +79,9 @@
   }
 }
 
-@keyframes doubt-shake {
-  25%,
-  75% {
-    transform: translateX(calc(-1 * var(--space-xs)));
-  }
-  50% {
-    transform: translateX(var(--space-xs));
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .surface-enter,
-  .number-pulse,
-  .doubt-shake {
+  .number-pulse {
     animation: none;
   }
 

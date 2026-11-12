@@ -1,47 +1,25 @@
-import React from "react";
-import styles from "./TimerSection.module.css";
+import { useEffect, useState } from 'react';
+import { Clock } from 'react-feather';
+import styles from './TimerSection.module.css';
 
-function TimerSection({ lockedInTime, sinceLastGuessTime, children }) {
-	const [currTime, setCurrTime] = React.useState(() => performance.now());
-
-	React.useEffect(() => {
-		const intervalId = setInterval(() => {
-			setCurrTime(performance.now());
-		}, 100);
-
-		return () => clearInterval(intervalId);
-	}, [lockedInTime]);
-
-	const timer = getTimer(currTime, lockedInTime);
-
-	const sinceLastGuessTimer =
-		sinceLastGuessTime && getTimer(currTime, sinceLastGuessTime);
-
-	return (
-		<div className={styles.container}>
-			<div>
-				<p>Locked in timer:</p>
-				<p>{timer}</p>
-			</div>
-			{sinceLastGuessTime !== null ? (
-				<div>
-					<p>Since last guess timer:</p>
-					<p>{sinceLastGuessTimer}</p>
-				</div>
-			) : null}
-			{children}
-		</div>
-	);
+function elapsed(now, start) {
+  const seconds = now === null || start === null ? 0 : Math.max(0, Math.floor((now - start) / 1000));
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
 }
 
-function getTimer(time1, time2) {
-	const duration = time1 > time2 ? Math.floor((time1 - time2) / 1000) : 0;
-	const minutes = Math.floor(duration / 60);
-	const seconds = duration % 60;
-
-	const timer = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-
-	return timer;
+/** @param {{ lockedInTime: number | null, sinceLastGuessTime: number | null }} props */
+export default function TimerSection({ lockedInTime, sinceLastGuessTime }) {
+  const [now, setNow] = useState(null);
+  useEffect(() => {
+    if (lockedInTime === null) return;
+    const interval = setInterval(() => setNow(performance.now()), 1000);
+    return () => clearInterval(interval);
+  }, [lockedInTime]);
+  return (
+    <div className={styles.container}>
+      <Clock size={16} aria-hidden='true' />
+      <span>Elapsed: <strong>{elapsed(now, lockedInTime)}</strong></span>
+      {sinceLastGuessTime !== null && <span className={styles.lastGuess}>Last guess: <strong>{elapsed(now, sinceLastGuessTime)}</strong></span>}
+    </div>
+  );
 }
-
-export default TimerSection;
