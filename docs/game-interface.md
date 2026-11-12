@@ -3,8 +3,11 @@
 ## Architecture
 
 The app uses Next.js App Router, React, JavaScript, CSS Modules, and react-feather.
-The page renders the bundled JSON question bank. There are no player sessions
-or synchronization services.
+The async Server Component page retrieves the bundled JSON question bank through
+`src/server/questions.mjs` and passes it into the `Game` Client Component. The
+same service backs `GET /api/questions`. Automatic loading and route error states
+are described in [Question service](question-service.md). There are no player
+sessions or synchronization services.
 
 `src/features/game/game-rules.mjs` defines pure guess validation, formatting,
 challenge availability and resolution, and the reducer. `useGame.js` supplies
@@ -73,8 +76,9 @@ clears the previous result, guesses, and timer origins, and returns to `playing`
 with the next question unlocked. It reuses a question only when the bank has one
 entry. Repeated next-round actions cannot skip questions. If the next question is
 missing or invalid, the result stays visible with an error and a retry action.
-Question loading remains local and synchronous; no requests or loading phase are
-needed. Differences use base-ten subtraction to avoid floating-point display
+Initial question retrieval is asynchronous on the server; subsequent question
+selection uses the initial bank in client memory without further requests.
+Differences use base-ten subtraction to avoid floating-point display
 artifacts while preserving decimal precision.
 
 History is stored in insertion order and displayed newest first, with sequence
@@ -107,6 +111,11 @@ Reset also closes the dropdown and returns focus to that trigger.
   equality, continued guessing after failure, result snapshots, stale challenges, frozen
   gameplay after resolution, next-round wraparound, repeated clicks, unavailable
   next questions and retries, optional metadata, and precise decimal differences.
+  It also covers the question service, development-only latency, delay utility,
+  and API success and failure contracts.
+- `npm run test:integration` checks real development streaming and the API with
+  a running server. See [Question service](question-service.md) for production
+  checks and the reusable browser verification helper.
 - The rules module can be checked with the installed TypeScript compiler:
   `node node_modules/typescript/bin/tsc --allowJs --checkJs --noEmit --skipLibCheck --target es2022 --module nodenext src/features/game/game-rules.mjs`.
   This JavaScript project has no project-wide TypeScript configuration.
