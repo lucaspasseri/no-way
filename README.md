@@ -21,28 +21,40 @@ during play. A challenge ends the round and reveals the answer, comparison,
 and available reference information on a dedicated Result screen. Choose
 Play another round to advance to the next question, then lock it to begin.
 
-The root `.env` supplies `DATABASE_URL`. Use a fresh development database for the new schema; existing databases require the separate deployment procedure in [Question repository](docs/question-service.md#separate-production-deployment-decision).
-For a fresh checkout, copy `.env.example` to `.env` and replace its placeholder
-with your PostgreSQL URL. Keep credentials out of version control. Schema and
-seed commands can be rerun without deleting data or creating duplicate questions.
-Nothing initializes or seeds the database during app startup.
+The root `.env` supplies `DATABASE_URL`. Copy `.env.example` to `.env` and set a
+local development URL. Fresh databases use `db:schema` and `db:seed`; existing
+production databases require the separate reviewed [lifecycle schema upgrade](db/upgrade-question-lifecycle.sql)
+and [manual compatibility steps](docs/question-service.md#existing-production-schema-manual-compatibility-steps).
+Nothing initializes or seeds the database during application startup.
 
-To generate standalone SQL files without connecting to PostgreSQL:
+The manifest now contains **200 curated questions**, with curated IDs **1–200**.
+Questions move through `generated → validated → curated`; only curated questions
+are playable. Automated validation does not establish factual accuracy. Database
+primary keys are independent from curated IDs and are preserved across imports.
+See the [dataset audit](docs/question-curation-report.md) and
+[workflow documentation](docs/question-service.md) for source reviews and commands.
+
+Generate production data SQL offline, then review it before manually executing it:
 
 ```sh
-npm run db:export:schema # writes db/exports/schema.sql
-npm run db:export:seed   # writes db/exports/seed.sql
+npm run --silent questions:export-sql > curated-questions.sql
+npm run --silent questions:export-sql -- --status curated > curated-questions.sql
+npm run --silent questions:export-sql -- --status validated > validated-questions.sql
+npm run --silent questions:export-sql -- --status generated > generated-questions.sql
+npm run --silent questions:export-sql -- --status all > all-questions.sql
+npm run questions:dataset -- check
 ```
 
-Pass an optional output path, for example
-`npm run db:export:seed -- /tmp/questions-seed.sql`. Exports overwrite the chosen
-file and create missing parent directories. The schema export includes
-`DROP TABLE IF EXISTS public.questions` before recreating the canonical structure,
-wrapped in a transaction. Executing it deletes existing question data; exporting
-the file does not connect to the database. Execute schema SQL before seed SQL
-if applying the files manually. The seed SQL preserves the existing repeat-safe
-upserts and refuses IDs owned by non-seed questions. Generated default exports
-are ignored by Git.
+`--silent` suppresses npm's banner so redirected output is valid SQL. The exporter
+needs no database connection or credentials and never executes statements. Imports
+are transactional and repeatable; unsafe content/status/identity conflicts raise
+errors. Existing legacy approved seed rows need the explicitly reviewed
+`--promote-validated` option after the separate schema upgrade. See the compatibility
+steps before selecting it.
+
+`npm run db:export:seed` also writes curated SQL to `db/exports/seed.sql`.
+`npm run db:export:schema` remains a destructive fresh-database export; **do not
+use it to upgrade production**. Its generated SQL drops the questions table.
 
 ## Checks
 
@@ -91,31 +103,30 @@ SDK errors and authorization headers are never logged. Unit tests mock the SDK
 or intercept its HTTP transport and do not make billable requests. Implementation follows the
 [OpenRouter quickstart](https://openrouter.ai/docs/quickstart).
 
-## AI candidates and human review
+## Candidate validation and factual review
 
-Only approved questions are playable. New AI candidates start pending, and review
-runs through an operator CLI protected by shell/database access:
+Use the existing database operator CLI to generate or import candidates, validate
+then curate them with actual independent evidence:
 
 ```sh
 npm run questions -- generate --count 3
-npm run questions -- list
-npm run questions -- list --status approved
-npm run questions -- approve 11 --reviewer 'editor' --verified-answer 6 \
-  --source 'https://authoritative.example/reference' \
-  --notes 'Independently checked the definition and calculated the numerical answer.' \
+npm run questions -- import --file candidates.json
+npm run questions -- list --status generated
+npm run questions -- validate 123
+npm run questions -- curate 123 --reviewer 'editor' --verified-answer 6 \
+  --source 'https://your-checked-reference.example/polygons' \
+  --notes 'Replace with actual factual, wording, difficulty and duplicate review notes.' \
   --independently-verified
-npm run questions -- reject 12 --reviewer 'editor' \
-  --notes 'The candidate has ambiguous wording and cannot be verified precisely.'
+npm run questions -- demote 123 --status generated \
+  --notes 'The source changed; a new factual review is required before gameplay.'
 ```
 
-Use actual pending IDs and independently researched evidence. Generation uses the
-existing OpenRouter key/model and requires strict structured-output support;
-`--model provider/model-slug` overrides the configured model. It runs only on
-explicit command, never while seeding, starting the app, or playing. Structural,
-content, and duplicate screening precede storage; human verification is required
-for approval. AI-suggested URLs and model agreement are not verification.
-See [Question repository](docs/question-service.md) for schema fields, supported
-classifications, safeguards, review limitations, and production deployment.
+IDs and evidence above are illustrative. Operator commands use database IDs.
+For a database-free manifest workflow, use `questions:dataset` with `import`,
+`validate`, `curate`, `demote`, `list` and `check`; see the
+[exact commands and candidate format](docs/question-service.md#offline-manifest-workflow).
+Generation uses the configured OpenRouter key/model only on explicit invocation.
+No AI request runs during seeding, application startup, exports or gameplay.
 
 ## Code and behavior
 
@@ -126,7 +137,7 @@ classifications, safeguards, review limitations, and production deployment.
 - React state adapter: `src/features/game/useGame.js`
 - Game UI: `src/components/Game` and its sibling components
 - Runtime questions: PostgreSQL `public.questions`
-- Seed dataset: `db/seed/questions.json` (five curated questions with stable IDs)
+- Seed dataset: `db/seed/questions.json` (200 curated questions; stable dataset IDs, curated IDs 1–200)
 - Schema and workflow: `db/schema.sql`, `db/schema.mjs`, `db/seed.mjs`, `db/reset.mjs`
 - Server-side question retrieval: `src/server/questions.mjs`
 
@@ -135,7 +146,7 @@ the interactive game. Development retrieval waits 1,000 ms so the automatic
 `loading.js` skeleton is visible on a fresh navigation. Production streams live
 database questions without an artificial wait. `GET /api/questions` uses the same
 service and returns public fields. Both the page and API omit answers, explanations,
-and source links. `POST /api/challenge` checks an approved question on the server
+and source links. `POST /api/challenge` checks a curated question on the server
 and reveals the answer and checked reference only on a successful challenge.
 
 An optional destructive reset is deliberately separate:

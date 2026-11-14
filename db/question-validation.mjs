@@ -1,13 +1,14 @@
 import { z } from 'zod';
 
-export const categories = ['science', 'geography', 'history', 'culture', 'sports', 'mathematics', 'technology'];
+export const categories = ['science', 'geography', 'history', 'culture', 'sports', 'mathematics', 'technology', 'nature', 'human-body', 'everyday'];
 export const difficulties = ['easy', 'medium', 'hard'];
-const text = (min, max) => z.string().trim().min(min).max(max).regex(/^[^\u0000]*$/u);
+const text = (min, max) => z.string().trim().min(min).max(max).regex(/^[^\u0000]*$/u).refine(value => value.isWellFormed());
 export const sourceURL = text(1, 2000).url().refine(value => {
   const url = new URL(value);
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !/\s/.test(value);
 });
 export const numericalAnswer = z.number().finite().min(0).max(Number.MAX_SAFE_INTEGER);
+export const reviewTimestamp = z.iso.datetime({ offset: true });
 
 // Nullable fields are required in structured output, so providers cannot omit keys.
 export const candidateSchema = z.strictObject({
@@ -27,7 +28,9 @@ export function questionError(code, message) {
 }
 
 function tokens(value) {
-  return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || [];
+  const words = value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || [];
+  return words.filter(word => !new Set(['how', 'many', 'what', 'is', 'are', 'a', 'an', 'the', 'does', 'do', 'have',
+    'in', 'of', 'to', 'at', 'for', 'and', 'its', 'it', 'according', 'total']).has(word));
 }
 
 export function similarQuestion(left, right) {
@@ -36,7 +39,7 @@ export function similarQuestion(left, right) {
   const first = new Set(a), second = new Set(b);
   const intersection = [...first].filter(word => second.has(word)).length;
   return intersection / new Set([...first, ...second]).size >= 0.85
-    || (intersection >= 4 && intersection / Math.min(first.size, second.size) >= 0.95
+    || (intersection >= 2 && intersection / Math.min(first.size, second.size) >= 0.95
       && intersection / Math.max(first.size, second.size) >= 0.7);
 }
 

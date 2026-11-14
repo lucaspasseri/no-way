@@ -1,6 +1,19 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { getPool } from "./pool.mjs";
+import { questionColumns } from "./seed-statements.mjs";
+
+export async function assertQuestionSchema(client) {
+	const { rows } = await client.query(`SELECT column_name FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'questions'`);
+	const columns = new Set(rows.map(row => row.column_name));
+	const missingColumns = ['id', ...questionColumns, 'created_at', 'updated_at'].filter(column => !columns.has(column));
+	if (missingColumns.length) {
+		throw Object.assign(new Error(`Incompatible questions schema; missing columns: ${missingColumns.join(', ')}. For a fresh database, run npm run db:schema before npm run db:seed. For an existing table, review db/upgrade-question-lifecycle.sql. Regenerate saved schema SQL with npm run db:export:schema before using it to recreate a database.`), {
+			code: 'QUESTION_SCHEMA_MISMATCH', missingColumns,
+		});
+	}
+}
 
 export async function applySchema(client) {
 	const sql = await readFile(new URL("./schema.sql", import.meta.url), "utf8");

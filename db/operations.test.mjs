@@ -1,111 +1,36 @@
 import { it } from 'node:test';
 import assert from 'node:assert/strict';
-import { applySchema } from './schema.mjs';
+import { applySchema, assertQuestionSchema } from './schema.mjs';
+import { questionColumns } from './seed-statements.mjs';
 import { assertResetAllowed, seedQuestions } from './seed.mjs';
-
-const bank = [{ id: 7, question: 'How many?', answer: '149.6', category: 'Science', 'src-label': 'Reference', src: 'https://example.com', explanation: 'In millions' }];
-function fakeClient({ existing = [], changed = 1, failInsert = false, verified = true } = {}) {
-  const calls = [];
-  return {
-    calls,
-    async query(sql, values) {
-      calls.push({ sql, values });
-      if (sql.startsWith('SELECT current_database')) return { rows: [{ database: 'no_way_test', address: '127.0.0.1' }] };
-      if (sql.startsWith('SELECT id, origin')) return { rows: existing };
-      if (sql.includes('INSERT INTO')) {
-        if (failInsert) throw new Error('Write failed');
-        assert.match(sql, /ON CONFLICT \(id\) DO UPDATE/);
-        assert.match(sql, /IS DISTINCT FROM/);
-        return { rowCount: changed };
-      }
-      if (sql.includes('answer::text')) return { rows: verified ? bank.map(question => ({
-        id: question.id, question: question.question, answer: question.answer, category: question.category,
-        source_label: question['src-label'], source_url: question.src, answer_context: question.explanation, unit: null, difficulty: 'medium', reference_date: null,
-      })) : [] };
-      return { rows: [], rowCount: 0 };
-    },
-  };
-}
-
-it('initialization uses the centralized non-destructive SQL schema', async () => {
-  let sql;
-  await applySchema({ query: async text => { sql = text; } });
-  assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.questions/);
-  assert.match(sql, /answer numeric NOT NULL/);
-  assert.doesNotMatch(sql, /\bDROP\b|\bTRUNCATE\b|\bDELETE\b/);
+import bank from './seed/questions.json' with { type:'json' };
+it('initializes the canonical non-destructive lifecycle schema',async()=>{
+ let sql; await applySchema({query:async text=>{sql=text;}});
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS/);assert.match(sql,/curated_id integer UNIQUE/);assert.match(sql,/'generated', 'validated', 'curated'/);assert.doesNotMatch(sql,/\bDROP\b|TRUNCATE|DELETE/);
 });
-
-it('seeding parameterizes all metadata and verifies writes before committing', async () => {
-  const client = fakeClient();
-  assert.deepEqual(await seedQuestions(client, { bank }), { inserted: 1, updated: 0, unchanged: 0 });
-  assert.equal(client.calls[0].sql, 'BEGIN');
-  assert.equal(client.calls.at(-1).sql, 'COMMIT');
-  const write = client.calls.find(call => call.sql.includes('INSERT INTO'));
-  assert.deepEqual(write.values, [7, 'How many?', '149.6', 'Science', 'Reference', 'https://example.com', 'In millions', null, 'medium', null]);
-  assert.doesNotMatch(write.sql, /How many\?/);
-  assert.ok(client.calls.some(call => call.sql.includes('setval')));
+it('seeds with the same guarded SQL as offline exports and rolls back conflicts',async()=>{
+ for(const fail of [false,true]) {
+  const calls=[];let counts=0;
+  const client={query:async sql=>{calls.push(sql);if(sql.includes('information_schema.columns'))return {rows:['id',...questionColumns,'created_at','updated_at'].map(column_name=>({column_name}))};if(sql.startsWith('SELECT count'))return {rows:[{count:counts++?bank.length:0}]};if(fail&&sql.startsWith('DO '))throw new Error('conflict');return {rows:[]};}};
+  if(fail) {await assert.rejects(seedQuestions(client));assert.equal(calls.at(-1),'ROLLBACK');}
+  else {assert.deepEqual(await seedQuestions(client),{inserted:bank.length,updated:0,unchanged:0});assert.equal(calls.at(-1),'COMMIT');}
+  assert.doesNotMatch(calls.join('\n'),/DO UPDATE|setval|DELETE/);
+ }
 });
-
-it('seeding reports updates and unchanged rows without deleting data or resetting moderation', async () => {
-  for (const [changed, expected] of [[1, { inserted: 0, updated: 1, unchanged: 0 }], [0, { inserted: 0, updated: 0, unchanged: 1 }]]) {
-    const client = fakeClient({ existing: [{ id: 7, origin: 'seed' }], changed });
-    assert.deepEqual(await seedQuestions(client, { bank }), expected);
-    const update = client.calls.find(call => call.sql.includes('ON CONFLICT')).sql.split('DO UPDATE SET')[1].split('WHERE')[0];
-    assert.doesNotMatch(update, /(?:^|,)\s*(?:status|origin)\s*=/);
-    assert.doesNotMatch(client.calls.map(call => call.sql).join(' '), /\bDELETE\b|\bDROP\b/);
-  }
+it('reports missing schema columns before seed writes and leaves legacy tables unchanged',async()=>{
+ const missing=['seed_key','curated_id','validated_at'];
+ const calls=[];
+ const client={query:async sql=>{calls.push(sql);return {rows:['id',...questionColumns,'created_at','updated_at'].filter(name=>!missing.includes(name)).map(column_name=>({column_name}))};}};
+ await assert.rejects(seedQuestions(client),error=>{
+  assert.equal(error.code,'QUESTION_SCHEMA_MISMATCH');assert.deepEqual(error.missingColumns,missing);
+  assert.match(error.message,/db\/upgrade-question-lifecycle.sql/);return true;
+ });
+ assert.equal(calls.at(-1),'ROLLBACK');assert.ok(!calls.some(sql=>sql.includes('INSERT INTO')||sql.includes('ALTER TABLE')||sql.includes('DROP TABLE')));
+ await assert.rejects(assertQuestionSchema({query:async()=>({rows:[]})}),{code:'QUESTION_SCHEMA_MISMATCH'});
 });
-
-it('seeding refuses non-seed ID collisions and rolls back write or verification failures', async () => {
-  for (const options of [{ existing: [{ id: 7, origin: 'manual' }] }, { failInsert: true }, { verified: false }]) {
-    const client = fakeClient(options);
-    await assert.rejects(seedQuestions(client, { bank }));
-    assert.equal(client.calls.at(-1).sql, 'ROLLBACK');
-    assert.ok(!client.calls.some(call => call.sql === 'COMMIT'));
-  }
-});
-
-it('invalid seed data is rejected before any database operation', async () => {
-  const client = fakeClient();
-  await assert.rejects(seedQuestions(client, { bank: [{ ...bank[0], answer: 'Infinity' }] }));
-  assert.deepEqual(client.calls, []);
-});
-
-it('reset requires explicit development mode and confirmation at the destructive entry point', async t => {
-  for (const environment of ['production', '', 'staging']) {
-    assert.throws(() => assertResetAllowed({ environment, confirmed: true }), /Reset refused/);
-  }
-  assert.throws(() => assertResetAllowed({ environment: 'development', confirmed: false }), /Reset refused/);
-  assert.doesNotThrow(() => assertResetAllowed({ environment: 'development', confirmed: true, connectionString: 'postgres://test@127.0.0.1/no_way_test' }));
-  const previous = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'production';
-  t.after(() => {
-    if (previous === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previous;
-  });
-  const client = fakeClient();
-  await assert.rejects(seedQuestions(client, { reset: true, bank }), /Reset refused/);
-  assert.deepEqual(client.calls, []);
-});
-
-it('an explicitly confirmed development reset recreates only questions in the seed transaction', async t => {
-  const previous = process.env.NODE_ENV;
-  const previousURL = process.env.DATABASE_URL;
-  process.env.DATABASE_URL = 'postgres://test@127.0.0.1/no_way_test';
-  const args = process.argv;
-  process.env.NODE_ENV = 'development';
-  process.argv = [...args, '--confirm-reset'];
-  t.after(() => {
-    if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous;
-    process.argv = args;
-    if (previousURL === undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL = previousURL;
-  });
-  const client = fakeClient();
-  await seedQuestions(client, { reset: true, bank });
-  assert.match(client.calls[0].sql, /current_database/);
-  assert.equal(client.calls[1].sql, 'BEGIN');
-  assert.equal(client.calls[2].sql, 'DROP TABLE IF EXISTS public.questions');
-  assert.match(client.calls[3].sql, /CREATE TABLE IF NOT EXISTS/);
-  assert.equal(client.calls.at(-1).sql, 'COMMIT');
-  assert.doesNotMatch(client.calls.map(call => call.sql).join(' '), /CASCADE/);
+it('invalid data and production resets are refused before database access',async()=>{
+ const client={query:async()=>{throw new Error('must not connect');}};
+ await assert.rejects(seedQuestions(client,{bank:[{...bank[0],status:'approved'}]}),{code:'INVALID_STATUS'});
+ for(const environment of ['production','','staging'])assert.throws(()=>assertResetAllowed({environment,confirmed:true}));
+ assert.throws(()=>assertResetAllowed({environment:'development',confirmed:false}));
 });

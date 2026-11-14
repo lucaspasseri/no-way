@@ -4,13 +4,16 @@ CREATE TABLE IF NOT EXISTS public.questions (
   question text NOT NULL CHECK (length(btrim(question)) BETWEEN 1 AND 1000),
   answer numeric NOT NULL CHECK (answer >= 0 AND answer <= 9007199254740991),
   unit text CHECK (length(btrim(unit)) BETWEEN 1 AND 100),
-  category text CHECK (category IN ('science', 'geography', 'history', 'culture', 'sports', 'mathematics', 'technology')),
+  category text CHECK (category IN ('science', 'geography', 'history', 'culture', 'sports', 'mathematics', 'technology', 'nature', 'human-body', 'everyday')),
   difficulty text NOT NULL DEFAULT 'medium' CHECK (difficulty IN ('easy', 'medium', 'hard')),
   source_label text CHECK (length(source_label) <= 200),
   source_url text CHECK (length(source_url) <= 2000 AND source_url ~ '^https?://[^[:space:]]+$'),
   answer_context text CHECK (length(btrim(answer_context)) BETWEEN 1 AND 4000),
   origin text NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'seed', 'ai')),
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  status text NOT NULL DEFAULT 'generated' CHECK (status IN ('generated', 'validated', 'curated')),
+  seed_key text UNIQUE CHECK (seed_key ~ '^predefined:[1-9][0-9]*$'),
+  curated_id integer UNIQUE CHECK (curated_id > 0),
+  validated_at timestamptz,
   reference_date date,
   generated_at timestamptz,
   generation_model text CHECK (length(btrim(generation_model)) BETWEEN 1 AND 200),
@@ -23,22 +26,25 @@ CREATE TABLE IF NOT EXISTS public.questions (
   updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT questions_generation CHECK (origin <> 'ai' OR
     (generated_at IS NOT NULL AND generation_model IS NOT NULL AND unit IS NOT NULL AND category IS NOT NULL AND answer_context IS NOT NULL)),
-  CONSTRAINT questions_approval CHECK (status <> 'approved' OR
+  CONSTRAINT questions_approval CHECK (status <> 'curated' OR
+    (curated_id IS NOT NULL AND unit IS NOT NULL AND category IS NOT NULL AND answer_context IS NOT NULL) AND
     (verified_at IS NOT NULL AND reviewed_at IS NOT NULL AND reviewed_by IS NOT NULL AND review_notes IS NOT NULL AND verification_source_url IS NOT NULL)),
-  CONSTRAINT questions_verification CHECK (status = 'approved' OR verified_at IS NULL)
+  CONSTRAINT questions_validation CHECK (status = 'generated' OR validated_at IS NOT NULL),
+  CONSTRAINT questions_verification CHECK (status = 'curated' OR verified_at IS NULL)
 );
 
 -- Fail clearly on the previous structure rather than silently reporting success.
 DO $schema_guard$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'questions' AND column_name = 'verification_source_url') THEN
-    RAISE EXCEPTION 'Incompatible questions schema. Use a fresh database or a separately reviewed deployment procedure.' USING ERRCODE = '55000';
+  IF (SELECT count(*) FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'questions'
+      AND column_name IN ('seed_key', 'curated_id', 'validated_at')) <> 3 THEN
+    RAISE EXCEPTION 'Incompatible questions schema. Apply db/upgrade-question-lifecycle.sql separately before data imports.' USING ERRCODE = '55000';
   END IF;
 END;
 $schema_guard$;
 
 CREATE INDEX IF NOT EXISTS questions_status_id_idx ON public.questions (status, id);
--- Protect exact duplicates, including rejected content, even under concurrent writes.
+-- Protect exact duplicates across all statuses, even under concurrent writes.
 CREATE UNIQUE INDEX IF NOT EXISTS questions_text_key ON public.questions
   (lower(regexp_replace(question, '[^a-zA-Z0-9]+', '', 'g')));

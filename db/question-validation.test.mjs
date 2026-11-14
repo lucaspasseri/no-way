@@ -23,10 +23,11 @@ it('validates candidates without numeric coercion, overflow, negatives, bad fiel
 it('screens duplicates across punctuation and near-identical wording, independent of status', () => {
   assert.ok(similarQuestion(candidate.question, 'HOW MANY SIDES DOES A REGULAR HEXAGON HAVE!!!'));
   assert.ok(similarQuestion(candidate.question, 'How many sides does a regular hexagon have in total?'));
-  for (const status of ['pending', 'approved', 'rejected']) {
+  for (const status of ['generated', 'validated', 'curated']) {
     assert.throws(() => validateCandidate(candidate, [{ ...candidate, status }]), { code: 'DUPLICATE_QUESTION' });
   }
   assert.ok(!similarQuestion(candidate.question, 'How many seconds are in exactly one minute?'));
+  assert.ok(!similarQuestion('According to NASA, what is the average Mars-Sun distance in million kilometers, rounded to the nearest whole million?', 'According to NASA, what is the average Jupiter-Sun distance in million kilometers, rounded to the nearest whole million?'));
 });
 
 it('screens subjective, imprecise, missing-unit, and undated changing questions', () => {

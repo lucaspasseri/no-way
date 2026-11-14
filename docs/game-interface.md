@@ -3,7 +3,7 @@
 ## Architecture
 
 The app uses Next.js App Router, React, JavaScript, CSS Modules, and react-feather.
-The async Server Component page retrieves approved PostgreSQL questions through
+The async Server Component page retrieves curated PostgreSQL questions through
 `src/server/questions.mjs` and passes only public fields into the `Game` Client Component. The
 same service backs `GET /api/questions`. Automatic loading and route error states
 are described in [Question service](question-service.md). There are no player
@@ -61,7 +61,7 @@ and nonfinite input is rejected. Invalid input remains in the field with an
 associated error; display formatting never changes comparison values.
 
 A challenge requires the `playing` phase, a locked question, and a valid latest guess.
-`POST /api/challenge` retrieves the approved answer and checks it on the server. It succeeds only when the latest guess exceeds the answer. Equality
+`POST /api/challenge` retrieves the curated answer and checks it on the server. It succeeds only when the latest guess exceeds the answer. Equality
 favors the guess. Only a successful challenge enters `result` and captures the latest
 guess, numerical answer, outcome, and original question with its metadata. A failed
 challenge stays in `playing`, preserving the question, guesses, lock, and timers.

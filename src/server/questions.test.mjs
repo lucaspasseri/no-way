@@ -16,13 +16,13 @@ function environment(t, value) {
   });
 }
 
-it('awaits PostgreSQL, requests approved questions ordered by ID, and preserves the contract', async t => {
+it('awaits PostgreSQL, requests curated questions ordered by ID, and preserves the contract', async t => {
   environment(t, 'test');
   let resolve;
   query = (sql, values) => {
     assert.match(sql, /FROM public\.questions WHERE status = \$1 ORDER BY id/);
     assert.match(sql, /answer::text AS answer/);
-    assert.deepEqual(values, ['approved']);
+    assert.deepEqual(values, ['curated']);
     return new Promise(done => { resolve = done; });
   };
   let settled = false;
@@ -74,13 +74,13 @@ it('rejects empty or malformed stored banks and preserves database failures for 
 });
 
 it('keeps answers, evidence, source links, and provenance out of public question data', () => {
-  const result = publicQuestion({ ...questions[0], origin: 'ai', status: 'approved', reviewed_by: 'private reviewer' });
-  assert.deepEqual(Object.keys(result).sort(), ['category', 'difficulty', 'id', 'question', 'unit']);
+  const result = publicQuestion({ ...questions[0], origin: 'ai', status: 'curated', reviewed_by: 'private reviewer' });
+  assert.deepEqual(Object.keys(result).sort(), ['category', 'curatedId', 'difficulty', 'id', 'question', 'status', 'unit']);
 });
 
-it('challenges only approved IDs, uses server answers, and reveals nothing on failure or equality', async () => {
+it('challenges only curated IDs, uses server answers, and reveals nothing on failure or equality', async () => {
   query = async (sql, values) => {
-    assert.match(sql, /WHERE id = \$1 AND status = 'approved'/);
+    assert.match(sql, /WHERE id = \$1 AND status = 'curated'/);
     assert.deepEqual(values, [1]);
     return { rows: [{ ...questions[0], origin: 'seed' }] };
   };
