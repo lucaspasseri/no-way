@@ -1,204 +1,270 @@
-# Question retrieval and route loading
+# PostgreSQL questions and development workflow
 
-The project uses Next.js 16.4.5, React 19.3, JavaScript with JSDoc, and CSS Modules.
-Cache Components and Partial Prefetching were already enabled. This refactor
-keeps that setup, the existing question schema, and all gameplay rules.
+The application uses the single PostgreSQL database configured in the existing
+root `.env`. There is no separate test database, migration system, ORM, or backend
+server. Next.js remains the backend, with `pg` as the only new direct dependency.
+The existing JavaScript/JSDoc conventions, UI, reducer, and gameplay rules remain.
 
-## Files
+## Files and responsibilities
 
 ```text
+.env.example                         placeholder DATABASE_URL; .env stays ignored
+db/
+  schema.sql                         current desired table definition
+  schema.mjs                         additive schema initialization
+  seed.mjs                           transactional, repeatable seed and verification
+  reset.mjs                          explicitly guarded destructive entry point
+  export-schema.mjs                  offline export to db/exports/schema.sql
+  export-seed.mjs                    offline export to db/exports/seed.sql
+  seed-statements.mjs                upsert/sequence SQL shared by seeding and export
+  pool.mjs                           Node-only shared connection pool
+  seed/questions.json                original dataset, moved unchanged
+  operations.test.mjs                 schema, seed, rollback, and reset tests
+  pool.test.mjs                       configuration and HMR pool reuse tests
+  database.integration.mjs            explicit read-only checks of the .env database
 src/
-  app/
-    page.js                     async Server Component
-    loading.js                  automatic Suspense fallback
-    loading.module.css          responsive skeleton placeholders
-    error.js                    Client Component with retry
-    api/questions/
-      route.js                  GET handler
-      route.test.mjs            success, awaiting, and failure contract tests
-  server/
-    questions.mjs               shared server-only getQuestions()
-    questions.test.mjs          retrieval, validation, and environment tests
-  lib/
-    delay.mjs                   framework-independent delay(ms)
-    delay.test.mjs              deterministic timer tests
-  data/questions.json           unchanged question bank
-  components/Game/Game.jsx      existing Client Component
-  features/game/                existing reducer, types, hook, and rule tests
+  server/questions.mjs                server-only getQuestions() using PostgreSQL
+  server/questions.test.mjs           asynchronous database contract and failure tests
+  features/game/validate-questions.mjs shared seed/retrieval contract validation
+  app/page.js                        async Server Component; calls service directly
+  app/api/questions/route.js          public GET response with answers omitted
+  app/api/questions/route.test.mjs    API contract and sanitized failure tests
+  app/loading.js                     existing automatic Suspense skeleton
+  app/error.js                       existing generic error and server retry
 tests/
-  register.mjs                  Node-only shim for the server-only marker
-  streaming.test.mjs            real HTTP streaming and API integration checks
-  game.browser.mjs              reusable Playwright interaction check
+  streaming.test.mjs                  real HTTP streaming and public API tests
+  game.browser.mjs                   reusable Playwright gameplay verification
+  register.mjs                       Node-only server-only marker shim for tests
 ```
 
-## Boundaries and data flow
+The old `src/data/questions.json` path was removed by moving the file to
+`db/seed/questions.json`; its contents were not duplicated or discarded. Runtime
+modules no longer import JSON. The existing question service was updated in
+place, and its JSON-mutating tests were replaced with database-boundary tests.
+No functional game components or unrelated files were removed. README, package
+scripts/lockfile, `.gitignore`, and the game architecture document were updated.
 
-`page.js` stays a Server Component. It awaits `getQuestions()` directly, then
-passes serializable question objects to `Game`. It never fetches its own API.
-The existing `Game` client boundary keeps the reducer, events, timers, locking,
-guesses, question navigation, challenges, and results in the browser.
-`ThemeProvider` remains a client provider in the layout. `error.js` is a Client
-Component because its retry button needs an event handler. Loading is rendered
-on the server without client state.
+## Schema
 
-Both callers use this single retrieval path:
+[schema.sql](../db/schema.sql) is the authoritative, complete SQL definition.
+It creates one table, `public.questions`:
+
+| Column | Type and purpose |
+| --- | --- |
+| `id` | Positive integer identity primary key; explicit legacy IDs are preserved |
+| `question` | Required, nonblank question text |
+| `answer` | Required finite `numeric`; preserves decimal precision in storage |
+| `category` | Optional text |
+| `source_label` | Optional text, maps to the existing `src-label` field |
+| `source_url` | Optional text, maps to `src` |
+| `answer_context` | Optional text, maps to `explanation` |
+| `origin` | Required text: `manual`, `seed`, or `ai`; defaults to `manual` |
+| `status` | Required text: `draft`, `verified`, or `rejected`; defaults to `draft` |
+| `created_at` | Required `timestamptz`, defaults to current transaction time |
+| `updated_at` | Required `timestamptz`, defaults to current transaction time |
+
+CHECK constraints reject invalid origins/statuses, nonpositive IDs, blank question
+text, and nonfinite answers. New manual or future AI records require explicit
+verification before entering gameplay. No unused difficulty column, generation
+implementation, extra tables, triggers, or migration history were introduced.
+Writers must set `updated_at` when changing rows; the seed does so only when data
+actually changes. The identity sequence is advanced after seeding to avoid future
+generated IDs colliding with preserved seed IDs.
+
+## Configuration and connections
+
+Keep the existing `.env` and its `DATABASE_URL`. For a new checkout only, copy
+`.env.example` to `.env` and replace its placeholder with the database URL. The
+CLI commands use Node's built-in `--env-file=.env`; Next.js loads the server
+environment normally. Do not export a different `DATABASE_URL` in your shell:
+environment variables take precedence over env-file values. Restart the app
+after changing database settings. Never use a `NEXT_PUBLIC_` credential variable.
+
+Use the provider-supplied URL when deploying to hosted PostgreSQL such as Neon,
+including its TLS options and a pooled endpoint where appropriate. The pool
+passes these options through without disabling certificate verification. See
+[node-postgres TLS configuration](https://node-postgres.com/features/ssl).
+Only the database from the current `.env` was accessed during implementation.
+
+`db/pool.mjs` lazily creates a pool with at most five connections per Node process,
+a five-second connection timeout, ten-second statement timeout, and ten-second
+idle timeout. Development stores the pool on `globalThis` to survive HMR;
+production reuses the module instance. Multiple deployment processes each have
+their own limit, so size the total against the provider's connection budget.
+See [node-postgres pooling](https://node-postgres.com/features/pooling).
+CLI scripts release clients and close the pool. The application reuses it.
+
+All imports of the pool are confined to Node scripts and the server-only question
+service. The service's `server-only` marker rejects accidental client imports.
+Credentials are never returned by the API. Failure logs report codes, not URLs,
+connection strings, passwords, or database exception text.
+
+## Initialization and seeding
+
+```sh
+npm run db:schema
+npm run db:seed
+```
+
+`db:schema` executes `CREATE TABLE IF NOT EXISTS`. It can be repeated and never
+drops, truncates, or replaces existing data. It deliberately does not reconcile
+an incompatible existing table definition. Edit `schema.sql` to represent the
+desired structure; breaking development changes require a deliberate reset.
+Initialization and seeding never run during application startup or build.
+
+`db:seed` validates the single seed JSON file, starts a transaction, and takes a
+short table lock that permits reads while serializing writers. It preserves IDs,
+all optional metadata, and numerical values. It inserts missing seed records as
+verified, updates changed content only for seed-owned IDs, and reports inserted,
+updated, and unchanged counts. Unchanged rows retain their timestamps. Existing
+moderation status is preserved; reseeding does not silently reverify rejected or
+draft records. Non-seed ID collisions fail without overwriting those records.
+Rows outside the seed IDs are never removed. Upserts use PostgreSQL
+[ON CONFLICT](https://www.postgresql.org/docs/current/sql-insert.html).
+
+Before committing, the seed reads the stored records back and verifies text,
+numerical answers, IDs, and metadata. An error rolls back table changes. Error
+codes distinguish missing/invalid configuration, invalid questions, seed ID
+conflicts, and verification failures; PostgreSQL errors retain their error code.
+Like normal PostgreSQL sequences, identity sequence positions are not guaranteed
+to roll back; gaps in generated IDs are harmless and must not imply missing rows.
+
+The configured database was initially empty. The first seed inserted 13 records.
+After running schema initialization again, a second seed reported:
 
 ```text
-page.js -----------------------+--> getQuestions() --> questions.json
-                               |        |
-GET /api/questions ------------+        +--> await delay(1000) in development
-
-page.js --> <Game questions={questions} /> --> existing interactive reducer
-API     --> { questions, error: null }
+{ inserted: 0, updated: 0, unchanged: 13 }
 ```
 
-The service imports `server-only`, which Next.js rejects inside a client import
-graph. It reuses the existing `Question` JSDoc typedef and `getQuestionAnswer`
-validation, checks for a nonempty bank with unique integer IDs, and returns
-copies so callers cannot mutate the shared JSON objects. IDs, optional metadata,
-and string versus numeric answers are preserved. It has no React or HTTP logic.
-The delay utility has no framework imports. A database or AI source can later
-replace the JSON import inside the service without changing its callers.
+To write SQL files instead of executing database operations, run
+`npm run db:export:schema` and `npm run db:export:seed`. Their default outputs are
+`db/exports/schema.sql` and `db/exports/seed.sql`, which are ignored by Git.
+Each command accepts an optional output filename after `--`, creates its parent
+directories, and overwrites that output file. Neither loads `.env` nor opens a
+database connection. The schema export copies the authoritative `schema.sql`;
+the seed export validates the JSON, escapes PostgreSQL string literals, and uses
+the same upsert and sequence statements as the executable seed. Its transaction
+also refuses non-seed ID collisions. Apply schema SQL before seed SQL when using
+these files manually. The offline export does not perform the live seed script's
+read-back verification or print inserted/updated counts.
 
-## Loading and rendering
+## Optional destructive reset
 
-Next.js automatically nests `loading.js` inside the segment layout and wraps
-`page.js` with Suspense. No manual page-wide boundary is necessary. When the
-page suspends, the server streams the skeleton; React replaces it when retrieval
-finishes. The skeleton uses existing game, header, question, and guess layout
-styles, theme tokens, mobile breakpoints, a loading status, and reduced-motion
-support. It reserves space for the question, navigation controls, guess entry,
-latest guess, history, and footer. Placeholder heights approximate the initial
-question; text wrapping and different fonts can still produce small differences.
+Only for expendable development data:
 
-An async function returning imported JSON could complete during prerendering.
-To make the demonstration observable, the page calls `await connection()` only
-when `NODE_ENV === 'development'`. The installed Next.js guide recommends this
-API when work must wait for a real user request, including waiting past prefetch.
-The service then calls `await delay(1000)` under the same environment condition.
-No timer runs during component rendering itself.
+```sh
+NODE_ENV=development npm run db:reset -- --confirm-reset
+```
 
-Production omits both the request-time opt-in and the timer. With the current
-local JSON source, the build prerenders both `/` and `/api/questions` as static
-content. The production page does not need to show a loading skeleton. JSON
-changes require a rebuild/redeploy. If retrieval later uses live external data,
-revisit caching, revalidation, and build-time availability explicitly.
+Reset refuses to connect unless both the exact development environment and the
+explicit confirmation flag are present. The destructive function checks again.
+It drops only `public.questions` without `CASCADE`, recreates the table from
+`schema.sql`, and seeds it in one transaction. Dependencies that prevent the drop
+cause failure rather than destruction of unrelated structures. It does not drop
+the database, its public schema, or any other tables. Keep a backup if needed.
+`NODE_ENV=production`, an unspecified environment, or missing confirmation refuses
+the operation. Environment flags cannot identify whether a URL actually holds
+valuable production data; never label such a connection as development to bypass
+the guard. No reset was executed against the configured database during this task.
 
-Fresh document navigation or a reload in development demonstrates the fallback.
-A reused client-router result or history entry may display immediately; Suspense
-only shows a fallback while there is actual pending work.
+## Runtime data flow, loading, and errors
 
-## API and errors
+```text
+PostgreSQL public.questions (status = verified, ORDER BY id)
+  -> getQuestions()
+       -> page.js -> existing Game Client Component and reducer
+       -> GET /api/questions -> public fields only
+```
 
-`GET /api/questions` returns `200` and `{ questions: Question[], error: null }`.
-Retrieval failures are logged server-side and return `500` with
-`{ questions: null, error: 'Unable to load questions. Please try again.' }` and
-`Cache-Control: no-store`. Framework handling supplies `405` for unsupported
-methods. The API does not duplicate question loading or validation.
+`getQuestions()` keeps the existing async `Promise<Question[]>` interface and
+uses a parameterized query. Numeric answers are returned as strings, matching the
+original bank and the existing string-or-number answer type. SQL null metadata
+becomes absent optional properties. Shared validation reuses `getQuestionAnswer`
+and checks identifiers, duplicate IDs, and metadata types. Stable ordering
+preserves next-question wraparound and random selection. Empty/invalid verified
+datasets throw to the existing route error boundary; there is no JSON fallback.
 
-A page retrieval failure reaches `error.js`, which shows a generic game-loading
-message without rendering the exception. Its button calls Next.js 16.4.5's
-`retry()` prop to refetch and rerender the segment. The installed version's
-`reset()` only clears boundary state, so it is not the appropriate recovery
-action for a failed server retrieval. Layout failures are outside this segment
-boundary. In development, Next.js may separately display its diagnostic overlay.
+The page calls the service directly, with no internal API fetch. The `Game`
+Client Component still owns all interactive state. The existing `loading.js`
+automatically supplies the segment's Suspense fallback; no extra boundary is
+introduced. Development still calls `connection()` to wait for real navigation
+and `getQuestions()` waits 1,000 ms before its query. Production schedules no
+artificial timer. With Cache Components enabled, the real uncached query streams
+behind a prerendered shell; `/api/questions` runs at request time. Database edits
+are read on fresh requests without requiring a build. An already-open game keeps
+its initial bank, and client router/history reuse can display cached route data.
 
-## Answer exposure and future verification
+The API keeps `{ questions, error }`: success returns `200` with public questions
+and `error: null`; failure returns `500`, `questions: null`, and a generic message.
+Both use `Cache-Control: no-store`. It never returns database exception details.
+The page still shows the generic `error.js` message and its installed Next.js
+`retry()` action, which refetches the segment. An unavailable database cannot
+silently degrade to stale JSON.
 
-The client currently resolves challenges against `question.answer` and renders
-the answer after success. Therefore full answers remain available in initial
-RSC data and the API, even though the gameplay UI hides them until the result.
-This is suitable for the existing local game, but it cannot prevent cheating.
-The server-only import protects the retrieval module; it does not hide values
-explicitly passed to the browser. Public reference links may also reveal answers.
+## Answer exposure and server verification follow-up
 
-The minimal follow-up is to send public question fields without answers to both
-the page and API, then add a server verification action or POST endpoint accepting
-a question ID and latest guess. That handler would use the same service to look
-up the authoritative answer, validate inputs, apply the existing strict
-`guess > answer` rule, and reveal the answer only on success. Keep only challenge
-resolution on the server initially. Competitive multiplayer would additionally
-need authoritative round/session state so clients cannot fabricate their guesses
-or replay arbitrary verification requests. None of that gameplay work is part
-of this refactor.
+The public API now omits `answer` and `explanation` via an explicit field allowlist.
+The game page still serializes answers to its Client Component. This is necessary
+for the existing reducer's challenge availability, synchronous challenge
+resolution, next-round validation, and result snapshots. A server-only database
+connection does not make those intentionally passed values secret. Public source
+links can also disclose answers. This remains a local game, not cheat-resistant
+multiplayer.
+
+A complete follow-up must send public-only data to `Game`, move challenge
+resolution to a server action/POST endpoint that looks up the verified question
+ID, and preserve the strict `guess > answer` rule (equality favors the guess).
+Return no answer on failure and return the result snapshot only on success.
+The reducer/hook then need pending and failure states, controls for duplicate
+requests, stale-response checks against the question and latest guess, and new
+tests for reset/unlock/navigation races and next-round availability. Competitive
+play additionally requires authoritative server round/session state. Adding only
+an endpoint while retaining local resolution would give inconsistent protection,
+so that broader gameplay refactor is intentionally identified rather than partly
+implemented here. No AI generation or persistence of player sessions was added.
 
 ## Verification
-
-Run the unit suite and lint normally:
 
 ```sh
 npm test
 npm run lint
-```
-
-All 43 unit tests pass: 35 existing game-rule tests plus eight retrieval, delay,
-and API tests. Mock timers prove the exact 1,000 ms development wait and zero
-scheduled artificial timers in production/test. Node's experimental module mocks
-replace only the service in API failure tests. `tests/register.mjs` substitutes
-the server-only marker in Node tests; the Next.js build still enforces the real
-server/client boundary. Node 22.15+ is needed for these test hooks.
-
-With `npm run dev` running in another terminal:
-
-```sh
-npm run test:integration
-```
-
-The development checks passed: the HTTP stream contained the loading fallback
-while the question HTML was still pending, then delivered the real game and
-initial JSON data. The real API returned the unchanged bank. These assertions
-check ordered states rather than fragile elapsed-time thresholds.
-
-For production, build and start in one terminal, then run the checks in another:
-
-```sh
+npm run test:db
+npm run test:integration # with npm run dev running
 npm run build
-npm run start -- --port 3001
 ```
+
+Results: 56 unit tests passed; the two explicit read-only database tests passed;
+development HTTP checks observed the fallback before the game and verified the
+public API. The production build passed and reports `/` as partially prerendered
+with streamed content and `/api/questions` as dynamic. With that build running
+on port 3001, both production HTTP checks also passed:
 
 ```sh
 TEST_BASE_URL=http://127.0.0.1:3001 TEST_MODE=production npm run test:integration
 ```
 
-The build and production integration checks passed. The build lists `/` and
-`/api/questions` as static; the prerender manifest confirms complete static
-responses. Production HTTP checks delivered completed question HTML without an
-active loading fallback. The first sandboxed Turbopack build could not open a
-worker port; clearing its generated build cache and rerunning with local process
-and network access completed successfully. Fonts still require network access.
+Both `NODE_ENV=production npm run db:reset -- --confirm-reset` and development
+reset without confirmation exited with refusal before opening a connection.
+The successful reset path, seed failures/rollback, and ID conflicts are tested
+with fake clients, so automated tests never destructively modify the sole database.
+`npm run test:db` is read-only; unit tests mock the database boundary. The HTTP
+integration checks expect the seeded dataset, so intentional content edits may
+require adjusting expectations. No separate database was created.
 
-The repository has no project-wide TypeScript configuration or Node type package.
-The existing focused JSDoc check passed, including the new framework-independent
-utility:
+The focused JSDoc/TypeScript check passed:
 
 ```sh
-node node_modules/typescript/bin/tsc --allowJs --checkJs --noEmit --skipLibCheck --target es2022 --module nodenext src/features/game/game-rules.mjs src/lib/delay.mjs
+node node_modules/typescript/bin/tsc --allowJs --checkJs --noEmit --skipLibCheck --target es2022 --module nodenext src/features/game/game-rules.mjs src/features/game/validate-questions.mjs src/lib/delay.mjs
 ```
 
-A standalone `checkJs` invocation including the server service reports missing
-Node `process` types and the `server-only` ambient declaration. No type packages
-were added solely to introduce project-wide checking during this refactor.
+There is still no project-wide TypeScript configuration, Node type package, or
+`pg` type package; no type dependencies were added solely to change that scope.
+The normal build also completed its existing TypeScript stage.
 
-`tests/game.browser.mjs` exports `verifyGame(page, options)` for any existing
-Playwright runner. Session browser tooling ran it against both development and
-production without adding a dependency. To reuse it from a Playwright test:
-
-```js
-import verifyGame from './tests/game.browser.mjs';
-
-await verifyGame(page, {
-  baseURL: 'http://127.0.0.1:3000',
-  development: true, // false for a production server
-});
-```
-
-Browser verification observed the fallback before the game (about 1.3 seconds
-in the recorded development run), with no application API request by the page.
-It passed Next/Random selection, locking/unlocking, zero and increasing guesses,
-invalid equal guesses, history, reset preserving the question/lock, failed and
-successful challenges, new rounds, settings, and theme switching in both modes.
-Layout checks at desktop, tablet, 390px, and 320px found no horizontal overflow;
-the skeleton and initial game heights differed by less than eight pixels in
-those measured viewports. An injected empty bank produced the sanitized real
-API failure and route error screen; after restoring the unchanged file, retry
-recovered the game. Screen-reader and physical-device testing remain manual.
+Session Playwright tooling ran `tests/game.browser.mjs` against development and
+production. Both passed question selection, locking, guess validation/history,
+reset, failed/successful challenges, results, next rounds, settings, themes, no
+client API fetch for initial data, and public API answer omission. The development
+fallback was visible for about 1.4 seconds in the recorded run; assertions use
+ordered states rather than fragile timing thresholds. No browser dependency was
+added. The existing loading/error components and styles did not need changes.

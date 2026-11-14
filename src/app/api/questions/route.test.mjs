@@ -1,6 +1,6 @@
 import { it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import questions from '../../../data/questions.json' with { type: 'json' };
+import questions from '../../../../db/seed/questions.json' with { type: 'json' };
 
 let retrieve = async () => questions;
 mock.module('../../../server/questions.mjs', {
@@ -8,18 +8,24 @@ mock.module('../../../server/questions.mjs', {
 });
 const { GET } = await import('./route.js');
 
-it('awaits the shared service and returns the complete question contract', async () => {
+it('awaits the service and returns public question fields without answers or context', async () => {
   let resolve;
   retrieve = () => new Promise(done => { resolve = done; });
   let settled = false;
   const pending = GET().then(response => { settled = true; return response; });
   await Promise.resolve();
   assert.equal(settled, false);
-  resolve(questions);
+  resolve(questions.map(question => ({ ...question, explanation: 'Private answer explanation' })));
   const response = await pending;
   assert.equal(response.status, 200);
   assert.match(response.headers.get('Content-Type'), /application\/json/);
-  assert.deepEqual(await response.json(), { questions, error: null });
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  const publicQuestions = questions.map(question => {
+    const result = { ...question };
+    delete result.answer;
+    return result;
+  });
+  assert.deepEqual(await response.json(), { questions: publicQuestions, error: null });
 });
 
 it('returns a consistent 500 response without leaking service errors or caching failures', async t => {
@@ -34,5 +40,5 @@ it('returns a consistent 500 response without leaking service errors or caching 
     error: 'Unable to load questions. Please try again.',
   });
   assert.equal(log.mock.callCount(), 1);
-  assert.equal(log.mock.calls[0].arguments[1], failure);
+  assert.deepEqual(log.mock.calls[0].arguments, ['Question retrieval failed.', { code: 'QUESTION_RETRIEVAL_FAILED' }]);
 });

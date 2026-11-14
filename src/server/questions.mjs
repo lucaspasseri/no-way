@@ -1,11 +1,10 @@
 import 'server-only';
 
-import questions from '../data/questions.json' with { type: 'json' };
-import { getQuestionAnswer } from '../features/game/game-rules.mjs';
+import { getPool } from '../../db/pool.mjs';
+import { validateQuestions } from '../features/game/validate-questions.mjs';
 import { delay } from '../lib/delay.mjs';
 
-/** Retrieve the question bank without changing its IDs or answer representation.
- * Replace the JSON source here when adding a database or generated questions.
+/** Retrieve verified questions in stable order for next/random selection.
  * @returns {Promise<import('../features/game/game-rules.mjs').Question[]>}
  */
 export async function getQuestions() {
@@ -13,15 +12,11 @@ export async function getQuestions() {
     await delay(1000);
   }
 
-  const ids = new Set();
-  if (!Array.isArray(questions) || questions.length === 0 || questions.some(question => {
-    if (!question || !Number.isInteger(question.id) || ids.has(question.id) || getQuestionAnswer(question) === null) return true;
-    ids.add(question.id);
-    return false;
-  })) {
-    throw new Error('The question bank is empty or invalid.');
-  }
-
-  // Keep callers from mutating the imported bank shared by subsequent requests.
-  return questions.map(question => ({ ...question }));
+  const { rows } = await getPool().query(`
+    SELECT id, question, answer::text AS answer, category,
+      source_label AS "src-label", source_url AS src, answer_context AS explanation
+    FROM public.questions WHERE status = $1 ORDER BY id`, ['verified']);
+  const questions = rows.map(row => Object.fromEntries(Object.entries(row).filter(([, value]) => value !== null)));
+  validateQuestions(questions);
+  return questions;
 }

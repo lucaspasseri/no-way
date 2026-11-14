@@ -83,7 +83,8 @@ export default async function verifyGame(page, { baseURL = 'http://127.0.0.1:300
     const payload = await response.json();
     check(response.status() === 200, 'The API must succeed');
     check(payload.error === null && payload.questions.length > 1, 'The API must return the question contract');
-    check(payload.questions[0].id === 1 && payload.questions[0].answer === '149.6', 'The API must preserve IDs and answer types');
+    check(payload.questions[0].id === 1, 'The API must preserve question IDs');
+    check(payload.questions.every(question => !('answer' in question) && !('explanation' in question)), 'The public API must omit correct answers and answer context');
     check(payload.questions[0].question === firstQuestion, 'The server-rendered game and API must use the same bank');
     return { development, fallbackVisibleMs, skeletonBox, gameBox, questions: payload.questions.length, gameplay: 'passed' };
   } finally {

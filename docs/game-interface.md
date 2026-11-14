@@ -3,7 +3,7 @@
 ## Architecture
 
 The app uses Next.js App Router, React, JavaScript, CSS Modules, and react-feather.
-The async Server Component page retrieves the bundled JSON question bank through
+The async Server Component page retrieves verified PostgreSQL questions through
 `src/server/questions.mjs` and passes it into the `Game` Client Component. The
 same service backs `GET /api/questions`. Automatic loading and route error states
 are described in [Question service](question-service.md). There are no player
@@ -71,7 +71,7 @@ Every gameplay action is ignored after a successful challenge, including queued 
 unlock, question selection, and repeated challenges. Stale challenges for a
 previous question are rejected. The numerical answer is visible only in the result.
 
-Play another round advances sequentially with wraparound using the bundled bank,
+Play another round advances sequentially with wraparound using the retrieved bank,
 clears the previous result, guesses, and timer origins, and returns to `playing`
 with the next question unlocked. It reuses a question only when the bank has one
 entry. Repeated next-round actions cannot skip questions. If the next question is
@@ -111,8 +111,10 @@ Reset also closes the dropdown and returns focus to that trigger.
   equality, continued guessing after failure, result snapshots, stale challenges, frozen
   gameplay after resolution, next-round wraparound, repeated clicks, unavailable
   next questions and retries, optional metadata, and precise decimal differences.
-  It also covers the question service, development-only latency, delay utility,
-  and API success and failure contracts.
+  It also covers PostgreSQL retrieval, development-only latency, delay utility,
+  public API success and failure contracts, pool reuse, seed transactions, and
+  reset safeguards. `npm run test:db` reads the sole configured database to check
+  the actual schema and seed compatibility without changing data.
 - `npm run test:integration` checks real development streaming and the API with
   a running server. See [Question service](question-service.md) for production
   checks and the reusable browser verification helper.

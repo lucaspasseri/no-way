@@ -5,7 +5,7 @@ import Game from "@/components/Game";
 
 export default async function Home() {
   // Demonstrate streaming on real navigations, even with Cache Components and prefetching.
-  // Production can still prerender the unchanged local question bank.
+  // The real database query also suspends in production; only development adds latency.
   if (process.env.NODE_ENV === "development") {
     await connection();
   }
