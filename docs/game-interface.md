@@ -3,8 +3,8 @@
 ## Architecture
 
 The app uses Next.js App Router, React, JavaScript, CSS Modules, and react-feather.
-The async Server Component page retrieves verified PostgreSQL questions through
-`src/server/questions.mjs` and passes it into the `Game` Client Component. The
+The async Server Component page retrieves approved PostgreSQL questions through
+`src/server/questions.mjs` and passes only public fields into the `Game` Client Component. The
 same service backs `GET /api/questions`. Automatic loading and route error states
 are described in [Question service](question-service.md). There are no player
 sessions or synchronization services.
@@ -60,8 +60,8 @@ the latest accepted guess. Decimals are supported. Blank, negative, nonnumeric,
 and nonfinite input is rejected. Invalid input remains in the field with an
 associated error; display formatting never changes comparison values.
 
-A challenge requires the `playing` phase, a locked question, a valid latest guess, and a finite
-answer. It succeeds only when the latest guess exceeds the answer. Equality
+A challenge requires the `playing` phase, a locked question, and a valid latest guess.
+`POST /api/challenge` retrieves the approved answer and checks it on the server. It succeeds only when the latest guess exceeds the answer. Equality
 favors the guess. Only a successful challenge enters `result` and captures the latest
 guess, numerical answer, outcome, and original question with its metadata. A failed
 challenge stays in `playing`, preserving the question, guesses, lock, and timers.
@@ -69,12 +69,15 @@ It stores only the unsuccessful outcome and shows nonblocking inline feedback;
 the next accepted guess clears that feedback. There is no penalty or turn switch.
 Every gameplay action is ignored after a successful challenge, including queued guesses, reset,
 unlock, question selection, and repeated challenges. Stale challenges for a
-previous question are rejected. The numerical answer is visible only in the result.
+previous question are rejected. Pending requests announce progress, prevent duplicate
+challenges, and ignore responses after reset, unlock, question changes, or a newer
+guess. Network/database errors preserve the round and offer retry. The numerical
+answer, explanation, and source are sent to the browser only in a successful result.
 
 Play another round advances sequentially with wraparound using the retrieved bank,
 clears the previous result, guesses, and timer origins, and returns to `playing`
-with the next question unlocked. It reuses a question only when the bank has one
-entry. Repeated next-round actions cannot skip questions. If the next question is
+with the next question unlocked. A multi-question bank advances to a different
+question; after reaching the end it wraps around. Repeated next-round actions cannot skip questions. If the next question is
 missing or invalid, the result stays visible with an error and a retry action.
 Initial question retrieval is asynchronous on the server; subsequent question
 selection uses the initial bank in client memory without further requests.

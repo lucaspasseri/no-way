@@ -52,6 +52,8 @@ export default function Game({ questions }) {
 							isLocked={state.isLocked}
 							canChallenge={game.canChallenge}
 							challengeFailed={state.challenge?.success === false}
+							challengePending={Boolean(state.challengeRequest)}
+							challengeError={state.roundError}
 							onSubmitGuess={game.submitGuess}
 							onChallenge={game.challengeGuess}
 						/>

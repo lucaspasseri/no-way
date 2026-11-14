@@ -32,9 +32,9 @@ function requestError(error) {
 }
 
 /** Make a single bounded request using the official SDK. No automatic retries.
- * @param {{ model?: string, prompt?: string }} options
+ * @param {{ model?: string, prompt?: string, responseSchema?: object, maxOutputTokens?: number }} options
  */
-export async function requestOpenRouter({ model, prompt = DEFAULT_PROMPT } = {}) {
+export async function requestOpenRouter({ model, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128 } = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
     throw new OpenRouterRequestError('OPENROUTER_API_KEY is not set. Create a key at https://openrouter.ai/keys and add it to .env or your server environment.');
@@ -59,7 +59,9 @@ export async function requestOpenRouter({ model, prompt = DEFAULT_PROMPT } = {})
       responsesRequest: {
         model: selectedModel,
         input: prompt,
-        maxOutputTokens: 128,
+        maxOutputTokens,
+        ...(responseSchema && { text: { format: { type: 'json_schema', name: 'question_candidates', strict: true, schema: responseSchema } },
+          provider: { requireParameters: true } }),
         reasoning: { effort: 'none' },
         stream: false,
         store: false,

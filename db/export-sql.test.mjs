@@ -18,8 +18,17 @@ it('exports schema and seed files to custom directories without database configu
     const script = fileURLToPath(new URL(`./export-${kind}.mjs`, import.meta.url));
     const result = spawnSync(process.execPath, [script, output], { env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
-    const expected = kind === 'schema' ? await readFile(new URL('./schema.sql', import.meta.url), 'utf8') : createSeedSQL();
-    assert.equal(await readFile(output, 'utf8'), expected);
+    const actual = await readFile(output, 'utf8');
+    if (kind === 'schema') {
+      const schema = await readFile(new URL('./schema.sql', import.meta.url), 'utf8');
+      assert.match(actual, /^--[^\n]*\nBEGIN;\nDROP TABLE IF EXISTS public\.questions;\n/);
+      assert.ok(actual.includes(schema), 'The export must retain the canonical schema');
+      assert.ok(actual.indexOf('DROP TABLE') < actual.indexOf('CREATE TABLE'));
+      assert.ok(actual.endsWith('COMMIT;\n'));
+      assert.doesNotMatch(actual, /\bCASCADE\b/);
+    } else {
+      assert.equal(actual, createSeedSQL());
+    }
   }
 });
 

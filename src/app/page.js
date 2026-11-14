@@ -1,6 +1,6 @@
 import styles from "./page.module.css";
 import { connection } from "next/server";
-import { getQuestions } from "@/server/questions.mjs";
+import { getQuestions, publicQuestion } from "@/server/questions.mjs";
 import Game from "@/components/Game";
 
 export default async function Home() {
@@ -10,5 +10,5 @@ export default async function Home() {
     await connection();
   }
   const questions = await getQuestions();
-  return <main className={styles.main}><Game questions={questions} /></main>;
+  return <main className={styles.main}><Game questions={questions.map(publicQuestion)} /></main>;
 }

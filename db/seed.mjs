@@ -4,16 +4,13 @@ import { validateQuestions } from '../src/features/game/validate-questions.mjs';
 import { getPool } from './pool.mjs';
 import { applySchema } from './schema.mjs';
 import { questionValues, upsertQuestionSQL, syncQuestionSequenceSQL } from './seed-statements.mjs';
+import { assertResetAllowed, verifyResetTarget } from './reset-safety.mjs';
 
-export function assertResetAllowed({ environment = process.env.NODE_ENV, confirmed = process.argv.includes('--confirm-reset') } = {}) {
-  if (environment !== 'development' || !confirmed) {
-    throw Object.assign(new Error('Reset refused. Use NODE_ENV=development and --confirm-reset only for an expendable development database.'), { code: 'RESET_REFUSED' });
-  }
-}
+export { assertResetAllowed } from './reset-safety.mjs';
 
 /** One transaction for writing and verifying the bank; reset is always guarded. */
 export async function seedQuestions(client, { reset = false, bank = questions } = {}) {
-  if (reset) assertResetAllowed();
+  if (reset) { assertResetAllowed(); await verifyResetTarget(client); }
   validateQuestions(bank);
   await client.query('BEGIN');
   try {
@@ -39,11 +36,12 @@ export async function seedQuestions(client, { reset = false, bank = questions } 
     }
 
     const { rows: stored } = await client.query(`
-      SELECT id, question, answer::text AS answer, category, source_label, source_url, answer_context
+      SELECT id, question, answer::text AS answer, category, source_label, source_url, answer_context, unit, difficulty, reference_date::text AS reference_date
       FROM public.questions WHERE id = ANY($1::integer[]) ORDER BY id`, [ids]);
     const expected = [...bank].sort((a, b) => a.id - b.id).map(question => ({
       id: question.id, question: question.question, answer: String(question.answer), category: question.category ?? null,
       source_label: question['src-label'] ?? null, source_url: question.src ?? null, answer_context: question.explanation ?? null,
+      unit: question.unit ?? null, difficulty: question.difficulty ?? 'medium', reference_date: question.referenceDate ?? null,
     }));
     // Compare numerical values without requiring PostgreSQL to retain JSON number formatting.
     if (stored.length !== expected.length || stored.some((row, index) =>

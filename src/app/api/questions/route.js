@@ -1,14 +1,9 @@
-import { getQuestions } from '../../../server/questions.mjs';
+import { getQuestions, publicQuestion } from '../../../server/questions.mjs';
 
 export async function GET() {
   try {
     const questions = await getQuestions();
-    // The game gets its full contract directly from the service; HTTP consumers
-    // only receive public fields. Server-side challenges remain a separate task.
-    const publicQuestions = questions.map(({ id, question, category, 'src-label': sourceLabel, src }) => ({
-      id, question, ...(category !== undefined && { category }),
-      ...(sourceLabel !== undefined && { 'src-label': sourceLabel }), ...(src !== undefined && { src }),
-    }));
+    const publicQuestions = questions.map(publicQuestion);
     return Response.json({ questions: publicQuestions, error: null }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Question retrieval failed.', { code: error.code || 'QUESTION_RETRIEVAL_FAILED' });

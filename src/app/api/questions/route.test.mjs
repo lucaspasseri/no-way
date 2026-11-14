@@ -1,10 +1,11 @@
 import { it, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { publicQuestion } from '../../../server/questions.mjs';
 import questions from '../../../../db/seed/questions.json' with { type: 'json' };
 
 let retrieve = async () => questions;
 mock.module('../../../server/questions.mjs', {
-  namedExports: { getQuestions: () => retrieve() },
+  namedExports: { getQuestions: () => retrieve(), publicQuestion },
 });
 const { GET } = await import('./route.js');
 
@@ -20,11 +21,7 @@ it('awaits the service and returns public question fields without answers or con
   assert.equal(response.status, 200);
   assert.match(response.headers.get('Content-Type'), /application\/json/);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
-  const publicQuestions = questions.map(question => {
-    const result = { ...question };
-    delete result.answer;
-    return result;
-  });
+  const publicQuestions = questions.map(publicQuestion);
   assert.deepEqual(await response.json(), { questions: publicQuestions, error: null });
 });
 

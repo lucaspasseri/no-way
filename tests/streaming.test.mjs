@@ -28,11 +28,7 @@ it('serves public fields from the seeded database through the real API', async (
   assert.equal(response.status, 200);
   assert.match(response.headers.get('Content-Type'), /application\/json/);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
-  const publicQuestions = questions.map(question => {
-    const result = { ...question };
-    delete result.answer;
-    return result;
-  });
+  const publicQuestions = questions.map(({ id, question, category, unit, difficulty }) => ({ id, question, category, unit, difficulty }));
   assert.deepEqual(await response.json(), { questions: publicQuestions, error: null });
 });
 

@@ -1,10 +1,11 @@
 /** @typedef {{ id: string, value: number }} Guess */
-/** @typedef {{ id: number, question: string, answer: string | number, category?: string, explanation?: string, 'src-label'?: string, src?: string }} Question */
+/** @typedef {{ id: number, question: string, answer?: string | number, category?: string, unit?: string, difficulty?: string, referenceDate?: string, explanation?: string, 'src-label'?: string, src?: string }} Question */
 /** @typedef {'playing' | 'result'} GamePhase */
 /** @typedef {{ success: true, guess: number, answer: number, question: Question }} ChallengeResult */
 /** @typedef {ChallengeResult | { success: false }} ChallengeOutcome */
-/** @typedef {{ phase: GamePhase, questionIndex: number, isLocked: boolean, lockedAt: number | null, lastGuessAt: number | null, guesses: Guess[], challenge: ChallengeOutcome | null, roundError: string | null }} GameState */
-/** @typedef {{ type: 'toggle-lock' | 'reset', now: number } | { type: 'select-question', index: number, total: number } | { type: 'guess', guess: Guess, now: number } | { type: 'challenge', question: Question, questionIndex: number } | { type: 'start-next-round', questions: Question[] }} GameAction */
+/** @typedef {{ id: string, questionId: number, questionIndex: number, guessId: string }} ChallengeRequest */
+/** @typedef {{ phase: GamePhase, questionIndex: number, isLocked: boolean, lockedAt: number | null, lastGuessAt: number | null, guesses: Guess[], challenge: ChallengeOutcome | null, challengeRequest: ChallengeRequest | null, roundError: string | null }} GameState */
+/** @typedef {{ type: 'toggle-lock' | 'reset', now: number } | { type: 'select-question', index: number, total: number } | { type: 'guess', guess: Guess, now: number } | { type: 'challenge-start', request: ChallengeRequest } | { type: 'challenge-complete', requestId: string, result: ChallengeOutcome } | { type: 'challenge-error', requestId: string } | { type: 'start-next-round', questions: Question[] }} GameAction */
 
 const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 20 });
 
@@ -50,10 +51,10 @@ export function validateGuess(input, previous = null) {
   return null;
 }
 
-/** Shared availability rule for both controls and the reducer. @param {GameState} state @param {number | null} answer */
-export function canChallengeGuess(state, answer) {
+/** Availability depends on public round state; the server owns the answer. @param {GameState} state */
+export function canChallengeGuess(state) {
   const lastGuess = state.guesses.at(-1);
-  return state.phase === 'playing' && state.isLocked && lastGuess !== undefined && validateGuess(lastGuess.value) === null && Number.isFinite(answer);
+  return state.phase === 'playing' && state.isLocked && !state.challengeRequest && lastGuess !== undefined && validateGuess(lastGuess.value) === null;
 }
 
 /** Equality favors the guess. Snapshot answers only on success. Call only with a validated question. @param {number} guess @param {Question} question @returns {ChallengeOutcome} */
@@ -66,7 +67,7 @@ export function resolveChallenge(guess, question) {
 
 /** @returns {GameState} */
 export function createGameState() {
-  return { phase: 'playing', questionIndex: 0, isLocked: false, lockedAt: null, lastGuessAt: null, guesses: [], challenge: null, roundError: null };
+  return { phase: 'playing', questionIndex: 0, isLocked: false, lockedAt: null, lastGuessAt: null, guesses: [], challenge: null, challengeRequest: null, roundError: null };
 }
 
 /** Check actions against the latest state, including queued guesses. @param {GameState} state @param {GameAction} action @returns {GameState} */
@@ -77,31 +78,45 @@ export function gameReducer(state, action) {
     case 'start-next-round': {
       if (state.phase !== 'result') return state;
       const index = (state.questionIndex + 1) % action.questions.length;
-      if (getQuestionAnswer(action.questions[index]) === null) {
+      const next = action.questions[index];
+      if (!next || !Number.isInteger(next.id) || next.id <= 0 || !next.question?.trim()
+        || (next.answer !== undefined && getQuestionAnswer(next) === null)) {
         return { ...state, roundError: 'The next question is unavailable. Please try again.' };
       }
       return { ...createGameState(), questionIndex: index };
     }
     case 'toggle-lock':
-      return { ...state, isLocked: !state.isLocked, lockedAt: state.lockedAt ?? action.now };
+      return { ...state, isLocked: !state.isLocked, lockedAt: state.lockedAt ?? action.now, challengeRequest: null, roundError: null };
     case 'select-question':
       if (state.isLocked || !Number.isInteger(action.index) || action.index < 0 || action.index >= action.total || action.index === state.questionIndex) return state;
       return { ...createGameState(), questionIndex: action.index };
     case 'guess': {
       const previous = state.guesses.at(-1)?.value ?? null;
       if (!state.isLocked || validateGuess(action.guess.value, previous)) return state;
-      return { ...state, guesses: [...state.guesses, action.guess], lastGuessAt: action.now, challenge: null };
+      return { ...state, guesses: [...state.guesses, action.guess], lastGuessAt: action.now, challenge: null, challengeRequest: null, roundError: null };
     }
-    case 'challenge': {
+    case 'challenge-start': {
       const lastGuess = state.guesses.at(-1);
-      const answer = getQuestionAnswer(action.question);
-      if (action.questionIndex !== state.questionIndex || answer === null || !lastGuess || !canChallengeGuess(state, answer)) return state;
-      const challenge = resolveChallenge(lastGuess.value, action.question);
-      return { ...state, phase: challenge.success ? 'result' : 'playing', challenge };
+      if (!canChallengeGuess(state) || action.request.questionIndex !== state.questionIndex
+        || action.request.guessId !== lastGuess?.id) return state;
+      return { ...state, challengeRequest: action.request, roundError: null };
+    }
+    case 'challenge-complete': {
+      const request = state.challengeRequest;
+      if (!request || request.id !== action.requestId) return state;
+      const challenge = action.result;
+      if (challenge.success && (!challenge.question || challenge.question.id !== request.questionId
+        || challenge.guess !== state.guesses.at(-1)?.value || getQuestionAnswer(challenge.question) !== challenge.answer
+        || !Number.isFinite(challenge.answer) || challenge.guess <= challenge.answer)) return state;
+      return { ...state, phase: challenge.success ? 'result' : 'playing', challenge, challengeRequest: null, roundError: null };
+    }
+    case 'challenge-error': {
+      if (state.challengeRequest?.id !== action.requestId) return state;
+      return { ...state, challengeRequest: null, roundError: 'Unable to check the challenge. Please try again.' };
     }
     case 'reset':
       if (!state.isLocked) return state;
-      return { ...state, guesses: [], lockedAt: action.now, lastGuessAt: null, challenge: null };
+      return { ...state, guesses: [], lockedAt: action.now, lastGuessAt: null, challenge: null, challengeRequest: null, roundError: null };
     default:
       return state;
   }

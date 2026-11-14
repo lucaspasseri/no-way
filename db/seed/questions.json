@@ -1,93 +1,57 @@
 [
-	{
-		"id": 1,
-		"question": "How many kilometers are in the distance from the Earth to the Sun? (in million kilometers)",
-		"answer": "149.6",
-		"src-label": "Earth to Sun Distance",
-		"src": "https://en.wikipedia.org/wiki/Astronomical_unit"
-	},
-	{
-		"id": 2,
-		"question": "How many kilometers are in the distance from the Earth to the Moon? (in thousand kilometers)",
-		"answer": "384.4",
-		"src-label": "Earth to Moon Distance",
-		"src": "https://en.wikipedia.org/wiki/Lunar_distance"
-	},
-	{
-		"id": 3,
-		"question": "How many kilometers are in the approximate average distance from the Earth to Mars? (in million kilometers)",
-		"answer": "225",
-		"src-label": "Earth to Mars Distance",
-		"src": "https://en.wikipedia.org/wiki/Mars#Distance_from_Earth"
-	},
-	{
-		"id": 4,
-		"question": "How many kilometers are in the average distance from Mercury to the Sun? (in million kilometers)",
-		"answer": "58",
-		"src-label": "Mercury to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 5,
-		"question": "How many kilometers are in the average distance from Venus to the Sun? (in million kilometers)",
-		"answer": "108",
-		"src-label": "Venus to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 6,
-		"question": "How many kilometers are in the average distance from Mars to the Sun? (in million kilometers)",
-		"answer": "227.9",
-		"src-label": "Mars to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 7,
-		"question": "How many kilometers are in the average distance from Jupiter to the Sun? (in million kilometers)",
-		"answer": "778",
-		"src-label": "Jupiter to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 8,
-		"question": "How many kilometers are in the average distance from Saturn to the Sun? (in million kilometers)",
-		"answer": "1400",
-		"src-label": "Saturn to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 9,
-		"question": "How many kilometers are in the average distance from Uranus to the Sun? (in million kilometers)",
-		"answer": "2900",
-		"src-label": "Uranus to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 10,
-		"question": "How many kilometers are in the average distance from Neptune to the Sun? (in million kilometers)",
-		"answer": "4500",
-		"src-label": "Neptune to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 11,
-		"question": "How many kilometers are in the average distance from Pluto to the Sun? (in million kilometers)",
-		"answer": "5900",
-		"src-label": "Pluto to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 12,
-		"question": "How many kilometers are in the average distance from Ceres to the Sun? (in million kilometers)",
-		"answer": "413",
-		"src-label": "Ceres to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	},
-	{
-		"id": 13,
-		"question": "How many kilometers are in the average distance from Eris to the Sun? (in million kilometers)",
-		"answer": "10000",
-		"src-label": "Eris to Sun Distance",
-		"src": "https://science.nasa.gov/solar-system/planet-sizes-and-locations-in-our-solar-system/"
-	}
+  {
+    "id": 1,
+    "question": "How many million kilometers are in one astronomical unit, rounded to one decimal place?",
+    "answer": "149.6",
+    "unit": "million kilometers",
+    "category": "science",
+    "difficulty": "medium",
+    "explanation": "The IAU defines one au as exactly 149,597,870,700 meters. Dividing by one billion converts to 149.5978707 million kilometers; rounding to one decimal place gives 149.6.",
+    "src": "https://cneos.jpl.nasa.gov/glossary/au.html",
+    "src-label": "NASA/JPL: astronomical unit"
+  },
+  {
+    "id": 2,
+    "question": "According to NASA, what is the mean Earth-Moon distance in thousand kilometers, rounded to one decimal place?",
+    "answer": "384.4",
+    "unit": "thousand kilometers",
+    "category": "science",
+    "difficulty": "medium",
+    "explanation": "NASA gives the mean Earth-Moon distance as 384,400 kilometers. Dividing by 1,000 gives 384.4 thousand kilometers. This is a rounded orbital average, not the instantaneous distance.",
+    "src": "https://science.nasa.gov/moon/facts/",
+    "src-label": "NASA: Moon facts"
+  },
+  {
+    "id": 6,
+    "question": "According to NASA, what is the average Mars-Sun distance in million kilometers, rounded to the nearest whole million?",
+    "answer": "228",
+    "unit": "million kilometers",
+    "category": "science",
+    "difficulty": "medium",
+    "explanation": "NASA reports the average Mars-Sun distance as 228 million kilometers. The answer uses that published whole-million approximation, not an instantaneous distance.",
+    "src": "https://science.nasa.gov/mars/facts/",
+    "src-label": "NASA: Mars facts"
+  },
+  {
+    "id": 7,
+    "question": "According to NASA, what is the average Jupiter-Sun distance in million kilometers, rounded to the nearest whole million?",
+    "answer": "778",
+    "unit": "million kilometers",
+    "category": "science",
+    "difficulty": "medium",
+    "explanation": "NASA reports the average Jupiter-Sun distance as 778 million kilometers. The answer uses that published whole-million approximation, not an instantaneous distance.",
+    "src": "https://science.nasa.gov/jupiter/jupiter-facts/",
+    "src-label": "NASA: Jupiter facts"
+  },
+  {
+    "id": 10,
+    "question": "According to NASA, what is the average Neptune-Sun distance in million kilometers, rounded to the nearest hundred million?",
+    "answer": "4500",
+    "unit": "million kilometers",
+    "category": "science",
+    "difficulty": "hard",
+    "explanation": "NASA reports an average distance of 4.5 billion kilometers. Multiplying by 1,000 gives 4,500 million kilometers at the published hundred-million precision.",
+    "src": "https://science.nasa.gov/neptune/neptune-facts/",
+    "src-label": "NASA: Neptune facts"
+  }
 ]

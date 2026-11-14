@@ -6,7 +6,13 @@ const question = { id: 1, question: 'How far?', answer: '149.6', 'src-label': 'R
 const questions = [question, { id: 2, question: 'How many?', answer: '384.4' }];
 const lock = state => gameReducer(state, { type: 'toggle-lock', now: 1000 });
 const submit = (state, value, now = 2000) => gameReducer(state, { type: 'guess', guess: { id: String(now), value }, now });
-const challenge = (state, answer = question.answer) => gameReducer(state, { type: 'challenge', question: { ...question, answer }, questionIndex: state.questionIndex });
+function challenge(state, answer = question.answer, original = { ...question, answer }) {
+  if (getQuestionAnswer(original) === null) return state;
+  const request = { id: 'test-request', questionId: original.id, questionIndex: state.questionIndex, guessId: state.guesses.at(-1)?.id };
+  const pending = gameReducer(state, { type: 'challenge-start', request });
+  if (pending === state) return state;
+  return gameReducer(pending, { type: 'challenge-complete', requestId: request.id, result: resolveChallenge(state.guesses.at(-1).value, original) });
+}
 const nextRound = (state, bank = questions) => gameReducer(state, { type: 'start-next-round', questions: bank });
 
 describe('guess validation', () => {
@@ -34,7 +40,7 @@ describe('guess validation', () => {
 
 describe('game state transitions', () => {
   it('starts unlocked with no fabricated guesses or timer', () => {
-    assert.deepEqual(createGameState(), { phase: 'playing', questionIndex: 0, isLocked: false, lockedAt: null, lastGuessAt: null, guesses: [], challenge: null, roundError: null });
+    assert.deepEqual(createGameState(), { phase: 'playing', questionIndex: 0, isLocked: false, lockedAt: null, lastGuessAt: null, guesses: [], challenge: null, challengeRequest: null, roundError: null });
   });
   it('ignores guess and reset actions before locking', () => {
     const state = createGameState();
@@ -105,7 +111,6 @@ describe('shared challenge behavior', () => {
   it('rejects invalid answers or invalid latest values', () => {
     const state = submit(lock(createGameState()), 100);
     for (const answer of [NaN, Infinity, -Infinity]) {
-      assert.equal(canChallengeGuess(state, answer), false);
       assert.equal(challenge(state, answer), state);
     }
     for (const value of [NaN, Infinity, -1]) {
@@ -204,11 +209,11 @@ describe('shared challenge behavior', () => {
   it('rejects a stale question after a queued selection', () => {
     const selected = gameReducer(createGameState(), { type: 'select-question', index: 1, total: 2 });
     const state = submit(lock(selected), 200);
-    assert.equal(gameReducer(state, { type: 'challenge', question, questionIndex: 0 }), state);
+    assert.equal(gameReducer(state, { type: 'challenge-start', request: { id: 'stale', questionId: 1, questionIndex: 0, guessId: state.guesses.at(-1).id } }), state);
   });
   it('snapshots the question and real optional metadata at resolution', () => {
     const original = { ...question, explanation: 'An explanation from the question bank.' };
-    const state = gameReducer(submit(lock(createGameState()), 200), { type: 'challenge', question: original, questionIndex: 0 });
+    const state = challenge(submit(lock(createGameState()), 200), original.answer, original);
     original.question = 'Changed';
     original.answer = '500';
     original.explanation = 'Changed';
@@ -229,7 +234,7 @@ describe('shared challenge behavior', () => {
       const invalid = { ...question, answer };
       assert.equal(getQuestionAnswer(invalid), null);
       const state = submit(lock(createGameState()), 100);
-      assert.equal(gameReducer(state, { type: 'challenge', question: invalid, questionIndex: 0 }), state);
+      assert.equal(challenge(state, invalid.answer, invalid), state);
     }
     assert.equal(getQuestionAnswer(undefined), null);
     assert.equal(getQuestionAnswer({ ...question, question: '' }), null);
