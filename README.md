@@ -51,9 +51,41 @@ npm run test:integration # with the development server running
 npm run build
 ```
 
-The 56 unit tests use Node's built-in test runner and need no additional
+The 65 unit tests use Node's built-in test runner and need no additional
 test dependency. Test hooks require Node 22.15 or newer. Fredoka and Plus Jakarta Sans use `next/font/google`, which
 requires Google Fonts to be reachable during a clean build.
+
+## OpenRouter test request
+
+Create an API key at [OpenRouter Keys](https://openrouter.ai/keys) and add
+`OPENROUTER_API_KEY=your-key` to the ignored root `.env`, or configure the variable
+in your server environment. Never prefix the key with `NEXT_PUBLIC_` or commit it.
+The example environment file contains no actual key.
+
+```sh
+npm run openrouter:test
+```
+
+This makes one text request through the official `@openrouter/sdk` and prints the
+model and reply. The default prompt asks for `OK`; the default model slug is
+[`inclusionai/ling-3.2-flash:free`](https://openrouter.ai/inclusionai/ling-3.2-flash:free).
+Free providers have availability and rate limits. Browse current slugs at
+[OpenRouter Models](https://openrouter.ai/models). To choose a model and prompt:
+
+```sh
+npm run openrouter:test -- inclusionai/ling-3.2-flash:free "Say hello in one sentence."
+```
+
+You can also set `OPENROUTER_MODEL` in `.env`; an explicit CLI model takes
+precedence. Node loads `.env` if present, and existing shell environment variables
+take precedence. The command runs only in Node, sends no game or database data,
+and exposes no public web endpoint. It uses a 30-second request timeout, a
+128-token output limit, and no automatic retries. Missing keys, authentication,
+credits, permissions, unavailable models, rate limits, timeouts, and empty or
+incomplete replies produce an actionable message and a nonzero exit code. Raw
+SDK errors and authorization headers are never logged. Unit tests mock the SDK
+or intercept its HTTP transport and do not make billable requests. Implementation follows the
+[OpenRouter quickstart](https://openrouter.ai/docs/quickstart).
 
 ## Code and behavior
 

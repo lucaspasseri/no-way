@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-test-module-mocks --import ./tests/register.mjs --test src/features/game/*.test.mjs src/lib/*.test.mjs src/server/*.test.mjs src/app/api/questions/*.test.mjs db/*.test.mjs",
+    "test": "node --experimental-test-module-mocks --import ./tests/register.mjs --test src/features/game/*.test.mjs src/lib/*.test.mjs src/server/*.test.mjs src/app/api/questions/*.test.mjs db/*.test.mjs scripts/*.test.mjs",
+    "openrouter:test": "node --env-file-if-exists=.env scripts/openrouter.mjs",
     "test:integration": "node --test tests/streaming.test.mjs",
     "test:db": "node --env-file=.env --import ./tests/register.mjs --test db/database.integration.mjs",
     "db:schema": "node --env-file=.env db/schema.mjs",
@@ -17,6 +18,7 @@
     "db:reset": "node --env-file=.env db/reset.mjs"
   },
   "dependencies": {
+    "@openrouter/sdk": "^1.5.103",
     "next": "16.4.5",
     "pg": "^8.23.1",
     "react": "19.3.0",
