@@ -1,35 +1,35 @@
-import { ArrowRight, BookOpen, ExternalLink, Lock, Shuffle, Unlock } from 'react-feather';
+import { ArrowRight, Lock, Shuffle, Unlock } from 'react-feather';
+import { metadataLabel } from '@/features/game/question-selection.mjs';
 import BigLetter from '../BigLetter';
 import styles from './QuestionCard.module.css';
 
-/** @param {{ currentQuestion: import('@/features/game/game-rules.mjs').Question, isLocked: boolean, canChangeQuestion: boolean, onToggleLock: () => void, onNextQuestion: () => void, onRandomQuestion: () => void, headingRef: import('react').RefObject<HTMLHeadingElement | null> }} props */
-export default function QuestionCard({ currentQuestion, isLocked, canChangeQuestion, onToggleLock, onNextQuestion, onRandomQuestion, headingRef }) {
-  const { id, question, category, 'src-label': sourceLabel, src } = currentQuestion;
+export default function QuestionCard({ currentQuestion, isLocked, canChangeQuestion, pending, preferences, onToggleLock, onNextQuestion, onRandomQuestion, headingRef }) {
+  const { id, curatedId, question, category, difficulty } = currentQuestion ?? {};
   return (
     <section className={styles.container} aria-labelledby='question-title'>
       <div className={styles.main + ' surface-enter'} key={id}>
         <BigLetter letter='Q' />
         <div className={styles.questionAndDetails}>
           <div className={styles.details}>
-            <span className={styles.category}>{category || 'Number trivia'}</span>
+            <div className={styles.chips}>
+              <span className={styles.category} aria-label={`Category: ${category ? metadataLabel(category) : 'Number trivia'}`}>{category ? metadataLabel(category) : 'Number trivia'}</span>
+              <span className={styles.category} aria-label={`Difficulty: ${difficulty ? metadataLabel(difficulty) : 'Not specified'}`}>{difficulty ? metadataLabel(difficulty) : 'Difficulty not specified'}</span>
+            </div>
             <div className={styles.metadata}>
-              {id != null && <span className={styles.questionNumber}>#{String(id).padStart(2, '0')}</span>}
+              {id != null && <span className={styles.questionNumber}>#{String(curatedId ?? id).padStart(2, '0')}</span>}
               <span className={styles.status}>
                 {isLocked ? <Lock size={12} aria-hidden='true' /> : <Unlock size={12} aria-hidden='true' />}
                 {isLocked ? 'Locked' : 'Unlocked'}
               </span>
             </div>
           </div>
-          <h2 id='question-title' ref={headingRef} tabIndex={-1}>{question}</h2>
+          <h2 id='question-title' ref={headingRef} tabIndex={-1}>{question || 'No questions available. Please try again later.'}</h2>
         </div>
       </div>
-      {(sourceLabel || src) && <div className={styles.source}>
-        <BookOpen size={16} aria-hidden='true' />
-        <p><span>Source: </span>{src ? <a href={src} target='_blank' rel='noreferrer'>{sourceLabel || 'View reference'}<ExternalLink size={12} aria-hidden='true' /><span className={styles.srOnly}> (opens in a new tab)</span></a> : sourceLabel}</p>
-      </div>}
       <footer className={styles.footer}>
-        <div className={styles.actions} role='group' aria-label='Question actions'>
-          <button className='button button-secondary' onClick={onToggleLock} aria-pressed={isLocked} aria-describedby='question-controls-hint'>
+        {preferences}
+        <div className={styles.actions} role='group' aria-label='Question actions' aria-busy={pending}>
+          <button className='button button-secondary' onClick={onToggleLock} disabled={pending || !currentQuestion} aria-pressed={isLocked} aria-describedby='question-controls-hint'>
             {isLocked ? <Unlock size={16} aria-hidden='true' /> : <Lock size={16} aria-hidden='true' />}
             {isLocked ? 'Unlock question' : 'Lock question'}
           </button>

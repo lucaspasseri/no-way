@@ -1,5 +1,5 @@
 /** Reusable browser checks for server challenges against the canonical seed pool. */
-export default async function verifyChallenges(page, { baseURL = 'http://127.0.0.1:3000' } = {}) {
+export default async function verifyChallenges(page, { baseURL = 'http://localhost:3000' } = {}) {
   function check(condition, message) { if (!condition) throw new Error(message); }
   async function prepare() {
     await page.goto(baseURL);

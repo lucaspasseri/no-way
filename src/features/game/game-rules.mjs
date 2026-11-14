@@ -1,11 +1,12 @@
 /** @typedef {{ id: string, value: number }} Guess */
-/** @typedef {{ id: number, question: string, answer?: string | number, category?: string, unit?: string, difficulty?: string, referenceDate?: string, explanation?: string, 'src-label'?: string, src?: string }} Question */
+/** @typedef {{ id: number, question: string, answer?: string | number, category?: string, unit?: string, difficulty?: string, referenceDate?: string, explanation?: string, 'src-label'?: string, src?: string, curatedId?: number }} Question */
 /** @typedef {'playing' | 'result'} GamePhase */
 /** @typedef {{ success: true, guess: number, answer: number, question: Question }} ChallengeResult */
 /** @typedef {ChallengeResult | { success: false }} ChallengeOutcome */
 /** @typedef {{ id: string, questionId: number, questionIndex: number, guessId: string }} ChallengeRequest */
-/** @typedef {{ phase: GamePhase, questionIndex: number, isLocked: boolean, lockedAt: number | null, lastGuessAt: number | null, guesses: Guess[], challenge: ChallengeOutcome | null, challengeRequest: ChallengeRequest | null, roundError: string | null }} GameState */
-/** @typedef {{ type: 'toggle-lock' | 'reset', now: number } | { type: 'select-question', index: number, total: number } | { type: 'guess', guess: Guess, now: number } | { type: 'challenge-start', request: ChallengeRequest } | { type: 'challenge-complete', requestId: string, result: ChallengeOutcome } | { type: 'challenge-error', requestId: string } | { type: 'start-next-round', questions: Question[] }} GameAction */
+/** questionIndex tracks transitions for stale-challenge checks, never a curated ID. */
+/** @typedef {{ phase: GamePhase, questionIndex: number, isLocked: boolean, lockedAt: number | null, lastGuessAt: number | null, guesses: Guess[], challenge: ChallengeOutcome | null, challengeRequest: ChallengeRequest | null, roundError: string | null, selectedQuestion?: Question, selectionRequest?: string | null, selectionError?: string | null }} GameState */
+/** @typedef {{ type: 'toggle-lock' | 'reset', now: number } | { type: 'select-question', index: number, total: number } | { type: 'guess', guess: Guess, now: number } | { type: 'challenge-start', request: ChallengeRequest } | { type: 'challenge-complete', requestId: string, result: ChallengeOutcome } | { type: 'challenge-error', requestId: string } | { type: 'start-next-round', questions: Question[] } | { type: 'selection-start', requestId: string } | { type: 'selection-cancel' } | { type: 'selection-complete', requestId: string, question: Question | null } | { type: 'selection-error', requestId: string }} GameAction */
 
 const numberFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 20 });
 
@@ -73,8 +74,27 @@ export function createGameState() {
 /** Check actions against the latest state, including queued guesses. @param {GameState} state @param {GameAction} action @returns {GameState} */
 export function gameReducer(state, action) {
   // A result can only be left by explicitly starting a valid new round.
-  if (state.phase === 'result' && action.type !== 'start-next-round') return state;
+  if (state.phase === 'result' && action.type !== 'start-next-round' && !action.type.startsWith('selection-')) return state;
   switch (action.type) {
+    case 'selection-start':
+      if ((state.phase === 'playing' && state.isLocked) || state.selectionRequest) return state;
+      return { ...state, selectionRequest: action.requestId, selectionError: null };
+    case 'selection-cancel':
+      return { ...state, selectionRequest: null, selectionError: null };
+    case 'selection-error':
+      if (state.selectionRequest !== action.requestId) return state;
+      return { ...state, selectionRequest: null, selectionError: 'Unable to load a question. Please try again.' };
+    case 'selection-complete': {
+      if (state.selectionRequest !== action.requestId || (state.phase === 'playing' && state.isLocked)) return state;
+      const question = action.question;
+      if (!question) return { ...state, selectionRequest: null,
+        selectionError: 'No questions match these preferences. Choose all categories or any difficulty and try again.' };
+      if (!Number.isInteger(question.id) || question.id < 1 || !question.question?.trim()) return state;
+      if (state.phase === 'playing' && state.selectedQuestion?.id === question.id) {
+        return { ...state, selectionRequest: null, selectionError: 'This is the only matching question. Broaden your preferences for more questions.' };
+      }
+      return { ...createGameState(), selectedQuestion: question, questionIndex: state.questionIndex + 1 };
+    }
     case 'start-next-round': {
       if (state.phase !== 'result') return state;
       const index = (state.questionIndex + 1) % action.questions.length;
@@ -86,6 +106,7 @@ export function gameReducer(state, action) {
       return { ...createGameState(), questionIndex: index };
     }
     case 'toggle-lock':
+      if (state.selectionRequest) return state;
       return { ...state, isLocked: !state.isLocked, lockedAt: state.lockedAt ?? action.now, challengeRequest: null, roundError: null };
     case 'select-question':
       if (state.isLocked || !Number.isInteger(action.index) || action.index < 0 || action.index >= action.total || action.index === state.questionIndex) return state;

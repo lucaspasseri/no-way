@@ -75,7 +75,7 @@ it('rejects empty or malformed stored banks and preserves database failures for 
 
 it('keeps answers, evidence, source links, and provenance out of public question data', () => {
   const result = publicQuestion({ ...questions[0], origin: 'ai', status: 'curated', reviewed_by: 'private reviewer' });
-  assert.deepEqual(Object.keys(result).sort(), ['category', 'curatedId', 'difficulty', 'id', 'question', 'status', 'unit']);
+  assert.deepEqual(Object.keys(result).sort(), ['category', 'curatedId', 'difficulty', 'id', 'question', 'unit']);
 });
 
 it('challenges only curated IDs, uses server answers, and reveals nothing on failure or equality', async () => {
@@ -93,4 +93,48 @@ it('challenges only curated IDs, uses server answers, and reveals nothing on fai
   }
   query = async () => ({ rows: [] });
   await assert.rejects(challengeQuestion(1, 150), { code: 'QUESTION_UNAVAILABLE' });
+});
+
+const { selectQuestion, getQuestionOptions } = await import('./questions.mjs');
+
+it('filters in parameterized curated-only SQL, retaining sequential order and one-question payloads', async () => {
+  for (const input of [{}, { category: 'science' }, { difficulty: 'easy' }, { category: 'nature', difficulty: 'hard', after: 5 }]) {
+    query = async (sql, values) => {
+      assert.match(sql, /WHERE status = 'curated'/);
+      assert.match(sql, /category = \$1/);
+      assert.match(sql, /difficulty = \$2/);
+      assert.match(sql, /CASE WHEN id > \$3 THEN 0 ELSE 1 END, id LIMIT 1/);
+      assert.deepEqual(values, [input.category || null, input.difficulty || null, input.after || 0]);
+      return { rows: [questions[0]] };
+    };
+    assert.deepEqual(await selectQuestion(input), publicQuestion(questions[0]));
+  }
+});
+
+it('random selection prefers unseen IDs, excludes the current when possible, and needs no retry loop', async () => {
+  query = async (sql, values) => {
+    assert.match(sql, /CASE WHEN id = \$3 THEN 1 ELSE 0 END, CASE WHEN id = ANY\(\$4::integer\[\]\) THEN 1 ELSE 0 END, random\(\) LIMIT 1/);
+    assert.deepEqual(values, [null, null, 1, [1, 2]]);
+    return { rows: [questions[1]] };
+  };
+  assert.equal((await selectQuestion({ mode: 'random', after: 1, recent: [1, 2] })).id, questions[1].id);
+  query = async () => ({ rows: [] });
+  assert.equal(await selectQuestion({ mode: 'random' }), null);
+});
+
+it('derives category options and counts solely from eligible aggregate data with schema difficulties', async () => {
+  query = async sql => {
+    assert.match(sql, /WHERE status = 'curated' GROUP BY category, difficulty/);
+    assert.ok(!sql.includes('answer'));
+    return { rows: [{ category: 'science', difficulty: 'easy', count: 3 }, { category: null, difficulty: null, count: 1 }] };
+  };
+  const options = await getQuestionOptions();
+  assert.deepEqual(options.categories, ['science']);
+  assert.deepEqual(options.difficulties, ['easy', 'medium', 'hard']);
+  assert.equal(options.total, 4);
+});
+
+it('handles legacy missing metadata without exposing answers or internal workflow', async () => {
+  query = async () => ({ rows: [{ id: 1, question: 'How many?', answer: '0', category: null, difficulty: null, status: 'curated' }] });
+  assert.deepEqual(await selectQuestion(), { id: 1, question: 'How many?' });
 });

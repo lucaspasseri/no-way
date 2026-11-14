@@ -59,8 +59,8 @@ it('exercises canonical schema, SQL imports, upgrades and gameplay in isolated P
     assert.equal((await scalar('SELECT count(*)::integer n FROM public.history')).n,1);
     assert.deepEqual(await seedQuestions(client),{inserted:0,updated:0,unchanged:bank.length});
     assert.deepEqual((await getQuestions()).map(row=>row.curatedId),bank.map(row=>row.curatedId));
-    const payload=await (await GET()).json();assert.equal(payload.questions.length,bank.length);
-    assert.ok(payload.questions.every(row=>row.status==='curated'&&!('answer'in row)&&!('review'in row)&&!('src'in row)));
+    const payload=await (await GET(new Request('http://localhost/api/questions'))).json();assert.equal(payload.questions.length,1);
+    assert.ok(payload.questions.every(row=>!('status'in row)&&!('answer'in row)&&!('review'in row)&&!('src'in row)));
   });
   await t.test('content, lifecycle, curated ID and normalized-text conflicts abort whole imports without overwriting history',async()=>{
     const first=await scalar("SELECT id FROM public.questions WHERE seed_key='predefined:1'");
@@ -127,7 +127,7 @@ it('exercises canonical schema, SQL imports, upgrades and gameplay in isolated P
   });
   await t.test('upgrade is separate, repeatable and preserves legacy PKs and foreign keys while requiring re-review',async()=>{
     await client.query('DROP TABLE public.history');await client.query('DROP TABLE public.questions');
-    const legacy=execFileSync('git',['show','HEAD:db/schema.sql'],{encoding:'utf8'});await client.query(legacy);
+    const legacy=await readFile(new URL('./fixtures/questions-pre-curation.sql',import.meta.url),'utf8');await client.query(legacy);
     await rolledBack(createSeedSQL(),'42703');
     await assert.rejects(seedQuestions(client),error=>{
       assert.equal(error.code,'QUESTION_SCHEMA_MISMATCH');

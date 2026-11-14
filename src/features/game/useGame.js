@@ -1,10 +1,15 @@
-import { useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
+import { rememberQuestion } from './question-selection.mjs';
 import { canChallengeGuess, createGameState, gameReducer, getQuestionAnswer } from './game-rules.mjs';
 
-/** @param {import('./game-rules.mjs').Question[]} questions */
-export default function useGame(questions) {
-  const [state, dispatch] = useReducer(gameReducer, undefined, createGameState);
-  const currentQuestion = questions[state.questionIndex];
+/** @param {import('./game-rules.mjs').Question[]} questions
+ * @param {import('./question-selection.mjs').QuestionPreferences} preferences */
+export default function useGame(questions, preferences) {
+  const [state, dispatch] = useReducer(gameReducer, questions[0], question => ({ ...createGameState(), selectedQuestion: question }));
+  const currentQuestion = state.selectedQuestion;
+  const selection = useRef(null);
+  const recent = useRef(questions[0] ? [questions[0].id] : []);
+  useEffect(() => () => selection.current?.controller.abort(), []);
   const lastRequest = useRef(null);
 
   async function challengeGuess() {
@@ -29,24 +34,41 @@ export default function useGame(questions) {
     finally { if (lastRequest.current === state) lastRequest.current = null; }
   }
 
-  function selectQuestion(index) {
-    dispatch({ type: 'select-question', index, total: questions.length });
+  function cancelSelection() {
+    selection.current?.controller.abort();
+    selection.current = null;
+    dispatch({ type: 'selection-cancel' });
   }
-  function nextQuestion() {
-    selectQuestion((state.questionIndex + 1) % questions.length);
-  }
-  function randomQuestion() {
-    if (questions.length < 2) return;
-    const offset = 1 + Math.floor(Math.random() * (questions.length - 1));
-    selectQuestion((state.questionIndex + offset) % questions.length);
+
+  async function requestQuestion(mode) {
+    if (selection.current || (state.phase === 'playing' && state.isLocked)) return;
+    const request = { id: crypto.randomUUID(), controller: new AbortController() };
+    selection.current = request;
+    dispatch({ type: 'selection-start', requestId: request.id });
+    const params = new URLSearchParams({ ...preferences, mode,
+      after: String(currentQuestion?.id ?? 0), recent: recent.current.join(',') });
+    try {
+      const response = await fetch('/api/questions?' + params, {
+        signal: AbortSignal.any([request.controller.signal, AbortSignal.timeout(15000)]), cache: 'no-store' });
+      const payload = await response.json();
+      if (!response.ok || !Array.isArray(payload.questions) || payload.questions.length > 1) throw new Error();
+      const question = payload.questions[0] ?? null;
+      if (question && (!Number.isInteger(question.id) || question.id <= 0 || !question.question?.trim())) throw new Error();
+      if (selection.current !== request) return;
+      if (question) recent.current = rememberQuestion(recent.current, question.id);
+      dispatch({ type: 'selection-complete', requestId: request.id, question });
+    } catch {
+      if (selection.current === request) dispatch({ type: 'selection-error', requestId: request.id });
+    } finally { if (selection.current === request) selection.current = null; }
   }
   return {
-    state, currentQuestion, nextQuestion, randomQuestion,
+    state, currentQuestion, cancelSelection,
+    nextQuestion: () => requestQuestion('next'), randomQuestion: () => requestQuestion('random'),
     canChallenge: canChallengeGuess(state),
     toggleLock: () => dispatch({ type: 'toggle-lock', now: performance.now() }),
     resetGuesses: () => dispatch({ type: 'reset', now: performance.now() }),
     submitGuess: value => dispatch({ type: 'guess', guess: { id: crypto.randomUUID(), value }, now: performance.now() }),
     challengeGuess,
-    startNextRound: () => dispatch({ type: 'start-next-round', questions }),
+    startNextRound: () => { if (state.phase === 'result') return requestQuestion('next'); },
   };
 }

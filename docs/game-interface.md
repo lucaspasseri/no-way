@@ -3,7 +3,7 @@
 ## Architecture
 
 The app uses Next.js App Router, React, JavaScript, CSS Modules, and react-feather.
-The async Server Component page retrieves curated PostgreSQL questions through
+The async Server Component page retrieves one curated PostgreSQL question and compact pool metadata through
 `src/server/questions.mjs` and passes only public fields into the `Game` Client Component. The
 same service backs `GET /api/questions`. Automatic loading and route error states
 are described in [Question service](question-service.md). There are no player
@@ -41,8 +41,8 @@ Pass Turn, Forfeit, and a separate No Way action are absent.
 
 - Locking enables guess submission and challenges. Next/Random are disabled
   while locked. Unlocking preserves guesses and elapsed time during play.
-- Next advances through the question bank with wraparound. Random selects a
-  different question whenever alternatives exist. Selecting another question
+- Next advances by database ID within selected category/difficulty preferences, with wraparound. Random
+  prefers unseen session IDs and selects a different question whenever alternatives exist. Selecting another question
   clears only question-specific state: guesses, result, lock, and timer origins.
 - `GameSettings` is a native, keyboard-operable header dropdown containing
   theme switching and Reset guesses. Reset is enabled for a locked question
@@ -74,13 +74,17 @@ challenges, and ignore responses after reset, unlock, question changes, or a new
 guess. Network/database errors preserve the round and offer retry. The numerical
 answer, explanation, and source are sent to the browser only in a successful result.
 
-Play another round advances sequentially with wraparound using the retrieved bank,
+Play another round requests the next matching curated question from the server, with wraparound,
 clears the previous result, guesses, and timer origins, and returns to `playing`
 with the next question unlocked. A multi-question bank advances to a different
 question; after reaching the end it wraps around. Repeated next-round actions cannot skip questions. If the next question is
 missing or invalid, the result stays visible with an error and a retry action.
-Initial question retrieval is asynchronous on the server; subsequent question
-selection uses the initial bank in client memory without further requests.
+Initial question retrieval is asynchronous on the server; explicit subsequent selection
+uses the filtered questions API. Preferences sit in the card footer and remain available
+on results; changing them preserves the active question, lock and guesses. Counts and
+metadata badges make the selected pool and current question distinct. See
+[Question service](question-service.md#player-question-selection) for request, history,
+persistence, empty-pool and race-handling details.
 Differences use base-ten subtraction to avoid floating-point display
 artifacts while preserving decimal precision.
 

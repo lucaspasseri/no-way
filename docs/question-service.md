@@ -3,7 +3,7 @@
 The checked-in manifest contains **200 curated questions**, with curated IDs **1–200**.
 The game reads PostgreSQL; it does not fall back to JSON or invoke AI during play.
 Only `curated` rows enter the page, `GET /api/questions`, or `POST /api/challenge`.
-The public question payload includes `status` and `curatedId`, while answers,
+The public question payload includes `curatedId`, category and difficulty, while internal status, answers,
 review evidence, source links and explanations remain hidden until a successful
 challenge. Database `id` continues to identify challenges and historical references.
 The home page and question route declare request-time boundaries before database
@@ -243,3 +243,85 @@ as a substitute for the isolated tests or run it against production automaticall
 [Dataset audit](question-curation-report.md) records the source review, counts,
 excluded draft and remaining limitations. Tests prove structural/workflow properties;
 they do not automatically re-check websites or independently establish factual truth.
+
+
+## Player question selection
+
+The page loads one initial question and one grouped category/difficulty count query.
+`GET /api/questions` now returns at most one question: `{ questions: [question], error: null }`.
+An empty matching pool returns `{ questions: [], error: null }` with HTTP 200.
+Malformed parameters return 400; database errors return a sanitized 500. Every response
+uses `Cache-Control: no-store`. No player request downloads the full bank.
+
+Supported query parameters (all optional):
+
+| Parameter | Values/default | Behavior |
+| --- | --- | --- |
+| `mode` | `next` (default), `random` | Stable database-ID order with wraparound, or randomized selection |
+| `category` | Empty (all), or a schema category key | Exact database filter |
+| `difficulty` | Empty (any), `easy`, `medium`, `hard` | Exact database filter |
+| `after` | Database ID; defaults to `0` | Next's cursor; Random avoids this current question if alternatives exist |
+| `recent` | Up to 200 positive database IDs, comma-separated | Random prefers IDs outside session history |
+
+Unknown/duplicate parameters are rejected. `status` is never player-controlled.
+`src/server/questions.mjs` uses the same curated eligibility predicate for counts,
+selection, and challenges. Generated and validated rows remain unavailable.
+`getQuestions` remains a server-only bulk helper for database checks.
+
+`QuestionPreferences` appears in the QuestionCard footer above Lock/Next/Random,
+and beside Play another round on results, so empty next-round pools can be broadened.
+Categories come from eligible grouped rows, labeled in title case. Difficulties reuse
+the existing validation schema values. Clear filters restores All categories/Any difficulty.
+Counts derive from the page's small aggregate without repeated count queries; they
+refresh on page reload and may become stale after operator changes. Every selection
+still checks live eligibility, and an empty response preserves the current round.
+
+Preferences use localStorage (`no-way:question-preferences`) through a hydration-safe
+external-store snapshot, with in-memory editing when storage is unavailable. Invalid or
+removed saved categories default to All categories. Restoring or changing preferences
+never requests a question, clears guesses, or overrides a lock. Pending selection is
+aborted on a filter edit; reducer request IDs also reject stale responses. Duplicate
+clicks share a request guard, actions announce loading, and failures permit retry.
+Replacing a different question clears guesses, challenges, lock and timers. Selecting
+the sole current question keeps guesses; starting another round may reuse it and resets
+the completed round. Empty pools never silently widen filters.
+
+Session history keeps the last 200 distinct selected database IDs in memory. Random
+prefers unseen questions, avoids the current one when alternatives exist, and repeats
+when exhausted. Reload starts new history. Curated labels are display identities and
+never serve as play-order indexes.
+
+### Metadata inventory
+
+No schema changes or migrations were needed. `db/schema.sql` is authoritative.
+
+| Fields | PostgreSQL types | Player use |
+| --- | --- | --- |
+| `id`, `curated_id` | integer | Stable selection/challenge identity; curated label on card |
+| `question`, `answer` | text, numeric | Question during play; answer only on successful challenge |
+| `category`, `difficulty` | constrained text | Selection preferences and compact card badges; missing legacy metadata has fallbacks |
+| `unit`, `reference_date` | text, date | Existing public metadata; question wording already supplies scope/units |
+| `source_label`, `source_url`, `verification_source_url`, `answer_context` | text | Existing successful result shows the verification source, label and explanation; never shown on active cards |
+| `status`, `origin`, `seed_key`, `generation_model` | constrained text/text | Internal lifecycle, provenance and import identity |
+| `validated_at`, `generated_at`, `verified_at`, `reviewed_at`, `created_at`, `updated_at` | timestamptz | Internal workflow dates |
+| `reviewed_by`, `review_notes` | text | Internal curation evidence |
+
+Category keys: science, geography, history, culture, sports, mathematics, technology,
+nature, human-body, everyday. Only categories actually present in curated data become
+player options. Difficulty defaults to medium in the database; presentation also handles
+older records lacking it without inventing a difficulty.
+
+### Selection verification
+
+- `npm test`: API parsing/contracts, SQL parameters, metadata safety, legacy records,
+  counts, preference restoration, bounded history, reducer request races, locking,
+  guesses, and result transitions.
+- `npm run test:selection:local`: temporary isolated PostgreSQL with real curated seed
+  data; checks category/difficulty combinations, default sequential order, wraparound,
+  unseen random selection, exhausted/single/empty pools, and demoted-status exclusion.
+  Requires local PostgreSQL binaries (`pg_config` or `PG_BIN`). It never changes the configured database.
+- `tests/question-preferences.browser.mjs`: reusable Playwright verification for
+  restoration, locking, filtering, counts, random history, empty/error states, rapid
+  clicks, stale responses, legacy badges, results, and 320/390/1000px layouts. Run
+  through the existing session browser tooling, alongside `tests/game.browser.mjs`
+  and `tests/challenge.browser.mjs`.

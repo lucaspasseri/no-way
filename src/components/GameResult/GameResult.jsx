@@ -2,8 +2,8 @@ import { ArrowRight, BookOpen, CheckCircle, ExternalLink } from 'react-feather';
 import { formatNumber, getGuessDifference } from '@/features/game/game-rules.mjs';
 import styles from './GameResult.module.css';
 
-/** @param {{ result: import('@/features/game/game-rules.mjs').ChallengeResult, onNextRound: () => void, error: string | null, headingRef: import('react').RefObject<HTMLHeadingElement | null> }} props */
-export default function GameResult({ result, onNextRound, error, headingRef }) {
+/** @param {{ result: import('@/features/game/game-rules.mjs').ChallengeResult, onNextRound: () => void, error: string | null, pending: boolean, preferences: import('react').ReactNode, headingRef: import('react').RefObject<HTMLHeadingElement | null> }} props */
+export default function GameResult({ result, onNextRound, error, headingRef, pending, preferences }) {
   const { guess, answer, question } = result;
   const { explanation, 'src-label': sourceLabel, src } = question;
   const difference = formatNumber(getGuessDifference(guess, answer));
@@ -46,8 +46,9 @@ export default function GameResult({ result, onNextRound, error, headingRef }) {
       )}
 
       <footer className={styles.actions}>
+        {preferences}
         {error && <p className={styles.error} role='alert'>{error}</p>}
-        <button className='button' onClick={onNextRound}>Play another round<ArrowRight size={17} aria-hidden='true' /></button>
+        <button className='button' onClick={onNextRound} disabled={pending}>Play another round<ArrowRight size={17} aria-hidden='true' /></button>
       </footer>
     </section>
   );

@@ -1,7 +1,7 @@
 /** Browser integration check. Pass a Playwright Page from an existing runner.
  * No timing thresholds: assert the fallback and hydrated game states in order.
  */
-export default async function verifyGame(page, { baseURL = 'http://127.0.0.1:3000', development = true } = {}) {
+export default async function verifyGame(page, { baseURL = 'http://localhost:3000', development = true } = {}) {
   function check(condition, message) {
     if (!condition) throw new Error(message);
   }
@@ -77,16 +77,16 @@ export default async function verifyGame(page, { baseURL = 'http://127.0.0.1:300
     check(await title.textContent() !== chosenQuestion, 'A new round advances the question');
     check(await input.isDisabled(), 'A new round starts unlocked');
     check(await page.getByText('0 guesses placed', { exact: true }).isVisible(), 'A new round clears history');
-    check(apiRequests.length === 0, 'The Server Component must retrieve questions directly');
+    check(apiRequests.length >= 3, 'Explicit navigation must use server selection');
 
     const response = await page.request.get(`${baseURL}/api/questions`);
     const payload = await response.json();
     check(response.status() === 200, 'The API must succeed');
-    check(payload.error === null && payload.questions.length > 1, 'The API must return the question contract');
+    check(payload.error === null && payload.questions.length === 1, 'The API must return the question contract');
     check(payload.questions[0].id === 1, 'The API must preserve question IDs');
     check(payload.questions.every(question => !('answer' in question) && !('explanation' in question)), 'The public API must omit correct answers and answer context');
     check(payload.questions[0].question === firstQuestion, 'The server-rendered game and API must use the same bank');
-    return { development, fallbackVisibleMs, skeletonBox, gameBox, questions: payload.questions.length, gameplay: 'passed' };
+    return { development, fallbackVisibleMs, skeletonBox, gameBox, questionsPerRequest: payload.questions.length, gameplay: 'passed' };
   } finally {
     page.off('request', track);
   }

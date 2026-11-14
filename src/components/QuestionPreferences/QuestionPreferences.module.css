@@ -1,0 +1,28 @@
+.container { margin-bottom: 16px; }
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.fields legend { margin-bottom: 10px; font-size: 12px; font-weight: 700; }
+.field { display: grid; flex: 1 1 140px; gap: 5px; font-size: 11px; font-weight: 600; }
+.fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 30px 8px 10px;
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-card);
+  color: var(--color-on-surface);
+  font: inherit;
+  font-size: 14px;
+}
+.fields button { border-radius: var(--radius-sm); padding: 8px 12px; font-size: 11px; }
+.container p { margin-top: 8px; color: var(--color-muted); font-size: 11px; line-height: 1.6; }
+.container p[role='status'] { color: var(--color-on-surface); }
+@media (max-width: 359px) { .field { flex-basis: 100%; } }
