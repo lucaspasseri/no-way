@@ -28,8 +28,9 @@ and [manual compatibility steps](docs/question-service.md#existing-production-sc
 Nothing initializes or seeds the database during application startup.
 
 The manifest now contains **200 curated questions**, with curated IDs **1–200**.
-Questions move through `generated → validated → curated`; only curated questions
-are playable. Automated validation does not establish factual accuracy. Database
+Questions move through `generated → validated → curated`; regular gameplay uses
+only curated questions. The Question Lab separately enables experimental packs.
+Automated validation does not establish factual accuracy. Database
 primary keys are independent from curated IDs and are preserved across imports.
 See the [dataset audit](docs/question-curation-report.md) and
 [workflow documentation](docs/question-service.md) for source reviews and commands.
@@ -55,6 +56,19 @@ steps before selecting it.
 `npm run db:export:seed` also writes curated SQL to `db/exports/seed.sql`.
 `npm run db:export:schema` remains a destructive fresh-database export; **do not
 use it to upgrade production**. Its generated SQL drops the questions table.
+
+## AI Question Lab (experimental)
+
+Open **Settings → AI Question Lab** to generate a private 10-, 15-, or 20-question
+pack using existing categories, your own topic, and standard or custom knowledge
+levels. Packs use the existing gameplay and keep numerical answers hidden until
+a successful challenge. They remain **generated, unverified, and for casual
+play**; no AI generation automatically validates or curates a question.
+
+Install the additive pack table in an existing database with `npm run db:lab`.
+Fresh `db:schema` installations already include it. The existing server-only
+OpenRouter credentials/model are reused. See [architecture, limits, recovery,
+and tests](docs/question-lab.md) for details.
 
 ## Checks
 
@@ -84,12 +98,12 @@ npm run openrouter:test
 
 This makes one text request through the official `@openrouter/sdk` and prints the
 model and reply. The default prompt asks for `OK`; the default model slug is
-[`inclusionai/ling-3.2-flash:free`](https://openrouter.ai/inclusionai/ling-3.2-flash:free).
+[`particle-ai/particle-1:free`](https://openrouter.ai/particle-ai/particle-1:free).
 Free providers have availability and rate limits. Browse current slugs at
 [OpenRouter Models](https://openrouter.ai/models). To choose a model and prompt:
 
 ```sh
-npm run openrouter:test -- inclusionai/ling-3.2-flash:free "Say hello in one sentence."
+npm run openrouter:test -- particle-ai/particle-1:free "Say hello in one sentence."
 ```
 
 You can also set `OPENROUTER_MODEL` in `.env`; an explicit CLI model takes
@@ -126,7 +140,8 @@ For a database-free manifest workflow, use `questions:dataset` with `import`,
 `validate`, `curate`, `demote`, `list` and `check`; see the
 [exact commands and candidate format](docs/question-service.md#offline-manifest-workflow).
 Generation uses the configured OpenRouter key/model only on explicit invocation.
-No AI request runs during seeding, application startup, exports or gameplay.
+No AI request runs during seeding, application startup, exports or regular gameplay.
+The Question Lab generates only after an explicit player request.
 
 ## Code and behavior
 

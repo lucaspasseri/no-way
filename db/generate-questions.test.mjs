@@ -28,3 +28,14 @@ it('fails clearly on unavailable providers, bad JSON, wrong counts, and invalid 
   }
   for (const count of [0, 6, NaN, 1.5]) await assert.rejects(generateCandidates({ count }), { code: 'INVALID_BATCH' });
 });
+
+it('can retain a smaller genuine lab batch without weakening the operator CLI contract', async () => {
+  request = async options => {
+    assert.equal(options.timeoutMs, 20000);
+    assert.match(options.prompt, /untrusted data/);
+    assert.match(options.prompt, /Pokémon/);
+    return { model: 'provider/model', text: JSON.stringify({ candidates: [{ question: 'first' }] }) };
+  };
+  const batch = await generateCandidates({ count: 5, allowPartial: true, timeoutMs: 20000, preferences: { topic: 'Pokémon', knowledge: 'expert' } });
+  assert.equal(batch.candidates.length, 1);
+});

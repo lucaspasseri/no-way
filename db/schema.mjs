@@ -18,6 +18,11 @@ export async function assertQuestionSchema(client) {
 export async function applySchema(client) {
 	const sql = await readFile(new URL("./schema.sql", import.meta.url), "utf8");
 	await client.query(sql);
+	await applyLabSchema(client);
+}
+
+export async function applyLabSchema(client) {
+	await client.query(await readFile(new URL('./lab-schema.sql', import.meta.url), 'utf8'));
 }
 
 if (
@@ -27,7 +32,8 @@ if (
 	let pool;
 	try {
 		pool = getPool();
-		await applySchema(pool);
+		if (process.argv.includes('--lab-only')) await applyLabSchema(pool);
+		else await applySchema(pool);
 		console.log("Question schema initialized. Existing data was preserved.");
 	} catch (error) {
 		console.error(

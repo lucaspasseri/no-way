@@ -41,6 +41,9 @@
   gap: 8px;
 }
 
+.labLink { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-primary-border); border-radius: 12px; background: var(--color-primary-background); font-size: 13px; font-weight: 700; text-decoration: none; }
+.labLink span { color: var(--color-muted); font-size: 10px; font-weight: 500; }
+
 .actions button {
   padding: 10px 14px;
   border-radius: var(--radius-sm);

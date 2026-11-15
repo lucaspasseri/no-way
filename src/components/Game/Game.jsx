@@ -10,11 +10,13 @@ import QuestionPreferences from "../QuestionPreferences/QuestionPreferences";
 import useQuestionPreferences from "@/features/game/useQuestionPreferences";
 import useGame from "@/features/game/useGame";
 import styles from "./Game.module.css";
+import ExperimentalPack from "../QuestionLab/ExperimentalPack";
+import { GameIdScope } from "@/features/game/GameIds";
 
 /** @param {{ questions: import('@/features/game/game-rules.mjs').Question[], options: import('@/features/game/question-selection.mjs').QuestionOptions }} props */
-export default function Game({ questions, options }) {
+export default function Game({ questions, options, pack = null }) {
 	const [preferences, updatePreferences] = useQuestionPreferences(options);
-	const game = useGame(questions, preferences);
+	const game = useGame(questions, preferences, pack);
 	const { state, currentQuestion } = game;
 	const headingRef = useRef(null);
 	const previousPhase = useRef(state.phase);
@@ -27,19 +29,21 @@ export default function Game({ questions, options }) {
 	}, [state.phase, currentQuestion?.id]);
 
 	const pending = Boolean(state.selectionRequest);
-	const preferenceControls = <QuestionPreferences preferences={preferences} options={options}
+	const preferenceControls = pack ? null : <QuestionPreferences preferences={preferences} options={options}
 		onChange={next => { game.cancelSelection(); updatePreferences(next); }}
 		pending={pending} error={state.selectionError} />;
 
 	return (
+		<GameIdScope packId={pack?.id}>
 		<div className={styles.container}>
 			<LayoutHeader
 				totalQuestions={options.total}
 				canReset={state.phase === "playing" && state.isLocked && state.guesses.length > 0}
 				onResetGuesses={game.resetGuesses}
 			/>
+			{pack && <ExperimentalPack pack={pack} questionId={currentQuestion?.id} index={state.questionIndex} complete={game.packComplete && state.phase === 'result'} />}
 			{state.phase === "result" && state.challenge?.success ? (
-				<GameResult result={state.challenge} onNextRound={game.startNextRound} error={state.roundError} pending={pending} preferences={preferenceControls} headingRef={headingRef} />
+				<GameResult result={state.challenge} onNextRound={game.startNextRound} error={state.roundError} pending={pending || game.packComplete} complete={game.packComplete} preferences={preferenceControls} headingRef={headingRef} />
 			) : (
 				<>
 					<div className={styles.content}>
@@ -47,7 +51,7 @@ export default function Game({ questions, options }) {
 							headingRef={headingRef}
 							currentQuestion={currentQuestion}
 							isLocked={state.isLocked}
-							canChangeQuestion={!state.isLocked && !pending}
+							canChangeQuestion={!state.isLocked && !pending && !game.packComplete}
 							pending={pending}
 							preferences={preferenceControls}
 							onToggleLock={game.toggleLock}
@@ -75,5 +79,6 @@ export default function Game({ questions, options }) {
 				</>
 			)}
 		</div>
+		</GameIdScope>
 	);
 }

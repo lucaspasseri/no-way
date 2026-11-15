@@ -1,0 +1,28 @@
+// Deterministic test data only. The application never imports these fixtures.
+const facts = [
+  ['How many faces does a regular octahedron have?', 8, 'mathematics'],
+  ['How many moons orbit Mars in the established astronomical classification?', 2, 'science'],
+  ['How many strings does a standard orchestral violin have?', 4, 'culture'],
+  ['How many legs does an adult honeybee have?', 6, 'nature'],
+  ['How many players per side start a regulation association football match?', 11, 'sports'],
+  ['How many keys does a standard modern grand piano have?', 88, 'culture'],
+  ['How many squares make up a standard chessboard?', 64, 'culture'],
+  ['How many degrees are in one complete turn?', 360, 'mathematics'],
+  ['How many days are in a Gregorian leap year?', 366, 'everyday'],
+  ['How many chambers does a healthy adult human heart have?', 4, 'human-body'],
+  ['How many bones form the standard adult human skeleton?', 206, 'human-body'],
+  ['How many events comprise an Olympic decathlon?', 10, 'sports'],
+  ['How many colors appear in the national flag of Japan?', 2, 'geography'],
+  ['How many letters are in the modern English alphabet?', 26, 'culture'],
+  ['How many sides form a regular pentagon?', 5, 'mathematics'],
+  ['How many protons are in the nucleus of a carbon atom?', 6, 'science'],
+  ['How many bits make up an octet in computing?', 8, 'technology'],
+  ['How many countries share a land border with Portugal?', 1, 'geography'],
+  ['How many symphonies did Ludwig van Beethoven complete?', 9, 'culture'],
+  ['How many years does one decade represent?', 10, 'everyday'],
+  ['How many numbered chapters are in the original Alice’s Adventures in Wonderland?', 12, 'culture'],
+  ['How many toes does a typical ostrich have on each foot?', 2, 'nature'],
+];
+export const labCandidates = facts.map(([question, answer, category]) => ({ question, answer, category,
+  unit: 'count', difficulty: 'easy', explanation: `Test fixture: the defined numerical answer is ${answer}. This is not external factual verification.`,
+  sourceUrl: 'https://example.org/test-reference', referenceDate: null }));

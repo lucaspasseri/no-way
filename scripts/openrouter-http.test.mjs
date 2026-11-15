@@ -41,8 +41,39 @@ it('the real SDK HTTP error is sanitized without retries or leaked provider deta
   }, { status: 401 }));
   await assert.rejects(requestOpenRouter(), error => {
     assert.match(error.message, /authentication failed/);
+    assert.equal(error.code, 'AI_AUTHENTICATION');
     assert.ok(!error.message.includes('http-test-key'));
     return true;
+  });
+  assert.equal(transport.mock.callCount(), 1);
+});
+
+it('aborts a stalled transport at the lab timeout without retrying', async t => {
+  let aborted = false, fallback;
+  t.after(() => clearTimeout(fallback));
+  const transport = t.mock.method(globalThis, 'fetch', request => new Promise((resolve, reject) => {
+    fallback = setTimeout(() => reject(new Error('Timeout did not abort the request')), 500);
+    request.signal.addEventListener('abort', () => { aborted = true; reject(request.signal.reason); }, { once: true });
+  }));
+  await assert.rejects(requestOpenRouter({ timeoutMs: 20 }), /timed out|cancelled/);
+  assert.equal(aborted, true);
+  assert.equal(transport.mock.callCount(), 1);
+});
+
+it('classifies a deadline while reading an HTTP 200 body as a timeout', async t => {
+  let fallback;
+  t.after(() => clearTimeout(fallback));
+  const transport = t.mock.method(globalThis, 'fetch', request => {
+    const body = new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode(' '));
+      request.signal.addEventListener('abort', () => controller.error(new TypeError('private body-read failure')), { once: true });
+      fallback = setTimeout(() => controller.error(new Error('Deadline did not abort the body')), 500);
+    } });
+    return Promise.resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  });
+  await assert.rejects(requestOpenRouter({ timeoutMs: 20 }), error => {
+    assert.equal(error.code, 'AI_TIMEOUT'); assert.match(error.message, /timed out/);
+    assert.doesNotMatch(error.message, /private/); return true;
   });
   assert.equal(transport.mock.callCount(), 1);
 });

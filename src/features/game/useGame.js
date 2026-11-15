@@ -1,16 +1,24 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { rememberQuestion } from './question-selection.mjs';
 import { canChallengeGuess, createGameState, gameReducer, getQuestionAnswer } from './game-rules.mjs';
+import { nextPackQuestion } from '../lab/config.mjs';
+import { useGameSessions } from './GameSessions';
 
 /** @param {import('./game-rules.mjs').Question[]} questions
  * @param {import('./question-selection.mjs').QuestionPreferences} preferences */
-export default function useGame(questions, preferences) {
-  const [state, dispatch] = useReducer(gameReducer, questions[0], question => ({ ...createGameState(), selectedQuestion: question }));
+export default function useGame(questions, preferences, pack = null) {
+  const sessions = useGameSessions();
+  const sessionKey = pack?.id ?? 'curated';
+  const [state, dispatch] = useReducer(gameReducer, questions[0], question => sessions?.get(sessionKey)?.state ?? ({ ...createGameState(), selectedQuestion: question }));
   const currentQuestion = state.selectedQuestion;
   const selection = useRef(null);
-  const recent = useRef(questions[0] ? [questions[0].id] : []);
+  const recent = useRef(sessions?.get(sessionKey)?.recent ?? (questions[0] ? [questions[0].id] : []));
   useEffect(() => () => selection.current?.controller.abort(), []);
   const lastRequest = useRef(null);
+  useEffect(() => {
+    sessions?.set(sessionKey, { state: { ...state, challengeRequest: null, selectionRequest: null }, recent: recent.current });
+    sessions?.set('lastGame', pack ? `/question-lab/play/${pack.id}` : '/');
+  }, [sessions, sessionKey, state, pack]);
 
   async function challengeGuess() {
     const guess = state.guesses.at(-1);
@@ -21,9 +29,10 @@ export default function useGame(questions, preferences) {
     const request = { id: crypto.randomUUID(), questionId: currentQuestion.id, questionIndex: state.questionIndex, guessId: guess.id };
     dispatch({ type: 'challenge-start', request });
     try {
-      const response = await fetch('/api/challenge', { method: 'POST',
+      const response = await fetch(pack ? '/api/question-lab' : '/api/challenge', { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: currentQuestion.id, guess: guess.value }), signal: AbortSignal.timeout(15000) });
+        body: JSON.stringify({ questionId: currentQuestion.id, guess: guess.value,
+          ...(pack && { action: 'challenge', id: pack.id }) }), signal: AbortSignal.timeout(15000) });
       const payload = await response.json();
       if (!response.ok || !payload.result || typeof payload.result.success !== 'boolean') throw new Error();
       if (payload.result.success && (payload.result.question?.id !== request.questionId
@@ -45,6 +54,13 @@ export default function useGame(questions, preferences) {
     const request = { id: crypto.randomUUID(), controller: new AbortController() };
     selection.current = request;
     dispatch({ type: 'selection-start', requestId: request.id });
+    if (pack) {
+      const question = nextPackQuestion(questions, recent.current, mode);
+      if (question) recent.current = [...recent.current, question.id];
+      dispatch({ type: 'selection-complete', requestId: request.id, question });
+      selection.current = null;
+      return;
+    }
     const params = new URLSearchParams({ ...preferences, mode,
       after: String(currentQuestion?.id ?? 0), recent: recent.current.join(',') });
     try {
@@ -63,6 +79,7 @@ export default function useGame(questions, preferences) {
   }
   return {
     state, currentQuestion, cancelSelection,
+    packComplete: Boolean(pack) && state.questionIndex >= questions.length - 1,
     nextQuestion: () => requestQuestion('next'), randomQuestion: () => requestQuestion('random'),
     canChallenge: canChallengeGuess(state),
     toggleLock: () => dispatch({ type: 'toggle-lock', now: performance.now() }),
