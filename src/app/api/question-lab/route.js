@@ -9,8 +9,8 @@ export async function GET(request) {
     const pack = await questionLab.get(new URL(request.url).searchParams.get('id'), requestIdentity(request).owner);
     return Response.json({ pack }, { headers });
   } catch (error) {
-    const { status, message } = labError(error);
-    return Response.json({ error: message }, { status, headers });
+    const { status, message, code } = labError(error, 'get');
+    return Response.json({ error: message, ...(code && { code }) }, { status, headers });
   }
 }
 
@@ -42,7 +42,7 @@ export async function POST(request) {
       : await questionLab.finish(id, identity.owner);
     return Response.json({ pack }, { headers: { ...headers, ...(action === 'create' && { 'Set-Cookie': identityCookie(identity.token) }) } });
   } catch (error) {
-    const { status, message } = labError(error);
-    return Response.json({ error: message }, { status, headers: { ...headers, ...(status === 429 && { 'Retry-After': '3600' }) } });
+    const { status, message, code } = labError(error, body.action);
+    return Response.json({ error: message, ...(code && { code }) }, { status, headers: { ...headers, ...(status === 429 && { 'Retry-After': '3600' }) } });
   }
 }

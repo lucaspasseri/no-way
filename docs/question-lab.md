@@ -48,6 +48,56 @@ canonical questions. Fresh `db:schema` and schema exports also include this tabl
 Production operators can review and run that SQL directly. Application startup
 does not perform schema writes. Missing schema/configuration returns a safe 503.
 
+### Production setup and diagnostics
+
+Deploying the application does not install the pack table. Run `db/lab-schema.sql`
+in the SQL editor for the **same database targeted by production's `DATABASE_URL`**.
+It creates only the pack table and indexes and can be applied repeatedly. If using
+a checkout with a `.env` that targets production, `npm run db:lab` runs that same
+additive installation. For a production shell with `DATABASE_URL` already supplied
+by the host and no `.env` file, use:
+
+```sh
+node db/schema.mjs --lab-only
+```
+
+Confirm installation in that database with:
+
+```sql
+SELECT to_regclass('public.question_lab_packs') AS lab_table;
+```
+
+A null result means the table is absent. Once it exists, check the actual app
+database role's permissions if requests still fail:
+
+```sql
+SELECT
+  has_table_privilege(current_user, 'public.question_lab_packs', 'SELECT') AS can_select,
+  has_table_privilege(current_user, 'public.question_lab_packs', 'INSERT') AS can_insert,
+  has_table_privilege(current_user, 'public.question_lab_packs', 'UPDATE') AS can_update,
+  has_table_privilege(current_user, 'public.question_lab_packs', 'DELETE') AS can_delete;
+```
+
+The app needs all four privileges on the pack table. Running this as a different
+administrative SQL-editor role does not check the application's role.
+
+Unhandled API errors return HTTP 503 with a safe `code` in the response JSON and a
+matching `Question Lab request failed.` server log entry:
+
+| Response code | First check |
+| --- | --- |
+| `LAB_SETUP_REQUIRED` | Missing table (`42P01`) or incompatible columns (`42703`); apply the additive schema to the correct database. |
+| `LAB_CONFIGURATION_REQUIRED` | Production `DATABASE_URL` is absent or malformed. |
+| `LAB_DATABASE_PERMISSIONS` | The database role lacks required privileges (`42501`). |
+| `LAB_DATABASE_CONNECTION` | Database credentials, network reachability, connection limits, or SSL configuration. |
+| `LAB_DATABASE_TIMEOUT` | A database statement was cancelled (`57014`), including a statement timeout. |
+| `LAB_UNAVAILABLE` | Another server failure; investigate using the action and safe diagnostic in the host logs. |
+
+Logs include only a validated action and allowlisted error codes. They never log
+connection strings, SQL, request bodies, owner cookies, or raw exception messages.
+OpenRouter failures are handled inside batch generation and normally appear as a
+pack's `lastErrorCode`; the outer API 503 is a separate server/setup failure.
+
 ## Server flow
 
 `POST /api/question-lab` accepts a bounded, strict JSON action:

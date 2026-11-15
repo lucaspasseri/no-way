@@ -6,6 +6,8 @@ import { createLabService } from '../src/server/question-lab.mjs';
 import { defaultLabConfig } from '../src/features/lab/config.mjs';
 import { labCandidates } from './fixtures/lab-candidates.mjs';
 import { seedQuestions } from '../db/seed.mjs';
+import { applyLabSchema } from '../db/schema.mjs';
+import { labError } from '../src/server/lab-http.mjs';
 
 it('exercises private packs, quotas, atomic generation, expiry, reports and server challenges in isolated PostgreSQL', { timeout: 60000 }, async t => {
   const db = await temporaryPostgres();
@@ -77,5 +79,20 @@ it('exercises private packs, quotas, atomic generation, expiry, reports and serv
     assert.equal((await db.pool.query('SELECT count(*)::integer AS n FROM public.questions')).rows[0].n, 200);
     const { rows: [{ data }] } = await db.pool.query('SELECT data FROM public.question_lab_packs WHERE id=$1', [pack.id]);
     assert.ok(data.questions.every(question => question.status === 'generated' && question.verification === 'unverified'));
+  });
+  await t.test('diagnoses the missing production table and recovers after additive installation', async t => {
+    const log = t.mock.method(console, 'error', () => {});
+    await db.pool.query('DROP TABLE public.question_lab_packs');
+    await assert.rejects(service.create(randomUUID(), 'production-setup-test', defaultLabConfig), error => {
+      assert.equal(error.code, '42P01');
+      assert.equal(labError(error, 'create').code, 'LAB_SETUP_REQUIRED');
+      return true;
+    });
+    assert.equal(log.mock.calls.at(-1).arguments[1].databaseCode, '42P01');
+    await applyLabSchema(db.pool);
+    await applyLabSchema(db.pool);
+    const recovered = await service.create(randomUUID(), 'production-setup-test', defaultLabConfig);
+    assert.equal(recovered.status, 'generating');
+    assert.equal((await db.pool.query('SELECT count(*)::integer AS n FROM public.questions')).rows[0].n, 200);
   });
 });

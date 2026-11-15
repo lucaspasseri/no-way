@@ -51,7 +51,8 @@ it('accepts same-origin requests through a normalized internal URL and checks th
   assert.equal((await POST(request({ action: 'finish', id }, { Host: 'game.example', Origin: 'https://game.example', 'X-Forwarded-Proto': 'https' }))).status, 200);
 });
 
-it('hides private server errors, communicates rate and concurrency limits, and retrieves owner-scoped packs', async () => {
+it('hides private server errors, communicates rate and concurrency limits, and retrieves owner-scoped packs', async t => {
+  t.mock.method(console, 'error', () => {});
   execute = async (method, packId, owner) => { assert.equal(method, 'get'); assert.equal(packId, id); assert.equal(owner, ownerHash(token)); return { id, questions: [] }; };
   assert.equal((await GET(new Request(`http://localhost/api/question-lab?id=${id}`, { headers: { Cookie: `${labCookie}=${token}` } }))).status, 200);
   for (const [code, status] of [['INVALID_CONFIG', 400], ['PACK_UNAVAILABLE', 404], ['LAB_BUSY', 409], ['LAB_RATE_LIMIT', 429], ['42P01', 503]]) {
@@ -60,4 +61,28 @@ it('hides private server errors, communicates rate and concurrency limits, and r
     assert.equal(response.status, status); assert.ok(!JSON.stringify(await response.json()).includes('private'));
     if (status === 429) assert.equal(response.headers.get('retry-after'), '3600');
   }
+});
+
+it('identifies production setup failures and logs only safe diagnostic fields', async t => {
+  const log = t.mock.method(console, 'error', () => {});
+  for (const [databaseCode, code] of [
+    ['42P01', 'LAB_SETUP_REQUIRED'], ['42703', 'LAB_SETUP_REQUIRED'],
+    ['DATABASE_URL_MISSING', 'LAB_CONFIGURATION_REQUIRED'], ['DATABASE_URL_INVALID', 'LAB_CONFIGURATION_REQUIRED'],
+    ['42501', 'LAB_DATABASE_PERMISSIONS'], ['28P01', 'LAB_DATABASE_CONNECTION'],
+    ['ECONNREFUSED', 'LAB_DATABASE_CONNECTION'], ['CERT_HAS_EXPIRED', 'LAB_DATABASE_CONNECTION'],
+    ['57014', 'LAB_DATABASE_TIMEOUT'], ['private-credential', 'LAB_UNAVAILABLE'],
+  ]) {
+    execute = async () => { throw Object.assign(new Error('private connection string and SQL'), { code: databaseCode, detail: 'private question data' }); };
+    const response = await POST(request({ action: 'create', id, config: { count: 10 } }));
+    const payload = await response.json();
+    assert.equal(response.status, 503); assert.equal(payload.code, code);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const logged = log.mock.calls.at(-1).arguments;
+    assert.deepEqual(logged, ['Question Lab request failed.', { action: 'create', code, databaseCode: databaseCode === 'private-credential' ? 'UNKNOWN' : databaseCode }]);
+    assert.doesNotMatch(JSON.stringify({ payload, logged }), /private|credential|connection string|SQL/);
+  }
+  execute = async () => { throw Object.assign(new Error('private server error'), { code: '42P01' }); };
+  const response = await GET(new Request(`http://localhost/api/question-lab?id=${id}`, { headers: { Cookie: `${labCookie}=${token}` } }));
+  assert.equal((await response.json()).code, 'LAB_SETUP_REQUIRED');
+  assert.equal(log.mock.calls.at(-1).arguments[1].action, 'get');
 });

@@ -45,7 +45,50 @@ export async function readLabBody(request) {
   return labActionSchema.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
 }
 
-export function labError(error) {
-  const status = { INVALID_CONFIG: 400, INVALID_CHALLENGE: 400, PACK_UNAVAILABLE: 404, LAB_RATE_LIMIT: 429, LAB_BUSY: 409 }[error.code] ?? 503;
-  return { status, message: status === 503 ? 'The question lab is unavailable. Check the server configuration or try again later.' : error.message };
+const databaseDiagnostics = {
+  DATABASE_URL_MISSING: 'LAB_CONFIGURATION_REQUIRED',
+  DATABASE_URL_INVALID: 'LAB_CONFIGURATION_REQUIRED',
+  '42P01': 'LAB_SETUP_REQUIRED',
+  '42703': 'LAB_SETUP_REQUIRED',
+  QUESTION_SCHEMA_MISMATCH: 'LAB_SETUP_REQUIRED',
+  '42501': 'LAB_DATABASE_PERMISSIONS',
+  '28P01': 'LAB_DATABASE_CONNECTION',
+  '28000': 'LAB_DATABASE_CONNECTION',
+  '08000': 'LAB_DATABASE_CONNECTION',
+  '08001': 'LAB_DATABASE_CONNECTION',
+  '08003': 'LAB_DATABASE_CONNECTION',
+  '08006': 'LAB_DATABASE_CONNECTION',
+  '53300': 'LAB_DATABASE_CONNECTION',
+  '57P01': 'LAB_DATABASE_CONNECTION',
+  ECONNREFUSED: 'LAB_DATABASE_CONNECTION',
+  ECONNRESET: 'LAB_DATABASE_CONNECTION',
+  ETIMEDOUT: 'LAB_DATABASE_CONNECTION',
+  ENOTFOUND: 'LAB_DATABASE_CONNECTION',
+  DEPTH_ZERO_SELF_SIGNED_CERT: 'LAB_DATABASE_CONNECTION',
+  SELF_SIGNED_CERT_IN_CHAIN: 'LAB_DATABASE_CONNECTION',
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'LAB_DATABASE_CONNECTION',
+  CERT_HAS_EXPIRED: 'LAB_DATABASE_CONNECTION',
+  '57014': 'LAB_DATABASE_TIMEOUT',
+};
+const diagnosticMessages = {
+  LAB_CONFIGURATION_REQUIRED: 'The question lab is not configured on this server. The game host needs to finish setup.',
+  LAB_SETUP_REQUIRED: 'The question lab setup is incomplete. The game host needs to finish installing it.',
+  LAB_DATABASE_PERMISSIONS: 'The question lab cannot save packs. The game host needs to check database access.',
+  LAB_DATABASE_CONNECTION: 'The question lab cannot connect to its database. Please try again later.',
+  LAB_DATABASE_TIMEOUT: 'The question lab database took too long to respond. Please try again later.',
+  LAB_UNAVAILABLE: 'The question lab is unavailable. Check the server configuration or try again later.',
+};
+
+export function labError(error, action = 'unknown') {
+  const status = { INVALID_CONFIG: 400, INVALID_CHALLENGE: 400, PACK_UNAVAILABLE: 404, LAB_RATE_LIMIT: 429, LAB_BUSY: 409 }[error?.code] ?? 503;
+  if (status !== 503) return { status, message: error.message };
+  const known = Object.hasOwn(databaseDiagnostics, error?.code);
+  const code = known ? databaseDiagnostics[error.code] : 'LAB_UNAVAILABLE';
+  // Never log the original error: pg errors can contain credentials, SQL, and
+  // question data. Only allowlisted codes and validated action names are useful.
+  console.error('Question Lab request failed.', {
+    action: ['get', 'create', 'advance', 'finish', 'challenge', 'report'].includes(action) ? action : 'unknown',
+    code, databaseCode: known ? error.code : 'UNKNOWN',
+  });
+  return { status, code, message: diagnosticMessages[code] };
 }
