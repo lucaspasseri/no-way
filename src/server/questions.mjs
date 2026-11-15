@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { localizeQuestion } from './question-localization.mjs';
 import { difficulties } from '../../db/question-validation.mjs';
 import { selectionSchema } from '../features/game/question-selection.mjs';
 import { getPool } from '../../db/pool.mjs';
@@ -21,8 +22,8 @@ function fromRows(rows) {
 
 // One explicit allowlist for the API and Server Component props. Source links and
 // explanation can disclose the answer; return them only on a successful challenge.
-export function publicQuestion({ id, question, category, unit, difficulty, referenceDate, curatedId }) {
-  return { id, question, ...(curatedId !== undefined && { curatedId }), ...(category !== undefined && { category }), ...(unit !== undefined && { unit }),
+export function publicQuestion({ id, question, category, unit, difficulty, referenceDate, curatedId, localization, locale: contentLocale }) {
+  return { id, question, ...(localization && { localization }), ...(contentLocale && { contentLocale }), ...(curatedId !== undefined && { curatedId }), ...(category !== undefined && { category }), ...(unit !== undefined && { unit }),
     ...(difficulty !== undefined && { difficulty }), ...(referenceDate !== undefined && { referenceDate }) };
 }
 
@@ -42,20 +43,22 @@ export async function getQuestions() {
   return questions;
 }
 
-export async function challengeQuestion(id, guess) {
+export async function challengeQuestion(id, guess, preferences) {
   if (!Number.isInteger(id) || id <= 0 || id > 2147483647 || typeof guess !== 'number' || validateGuess(guess)) {
     throw Object.assign(new Error('Invalid challenge.'), { code: 'INVALID_CHALLENGE' });
   }
   const { rows } = await getPool().query(`SELECT ${questionColumns}
     FROM public.questions WHERE id = $1 AND ${gameplayEligibility}`, [id]);
-  const [question] = fromRows(rows);
+  const [stored] = fromRows(rows);
+  const question = stored && (preferences ? localizeQuestion(stored, preferences) : stored);
   if (!question) throw Object.assign(new Error('Question unavailable.'), { code: 'QUESTION_UNAVAILABLE' });
   validateQuestions([question]);
   // Internal origin stays in the repository; reveal only result and reference metadata.
   const resultQuestion = { ...publicQuestion(question), answer: question.answer,
     ...(question.src !== undefined && { src: question.src }),
     ...(question['src-label'] !== undefined && { 'src-label': question['src-label'] }),
-    ...(question.explanation !== undefined && { explanation: question.explanation }) };
+    ...(question.explanation !== undefined && { explanation: question.explanation }),
+    ...(question.explanationTexts && { explanationTexts: question.explanationTexts }) };
   return resolveChallenge(guess, resultQuestion);
 }
 
@@ -81,5 +84,5 @@ export async function selectQuestion(input = {}) {
   if (!rows.length) return null;
   const [question] = fromRows(rows);
   validateQuestions([question]);
-  return publicQuestion(question);
+  return publicQuestion(input.locale !== undefined || input.unitSystem !== undefined ? localizeQuestion(question, { locale: input.locale, unitSystem: input.unitSystem }) : question);
 }

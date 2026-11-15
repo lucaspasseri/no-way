@@ -1,0 +1,28 @@
+// Mock facts for localization QA, never used by production generation.
+const facts = [
+  ['Quantas faces tem um octaedro regular?', 8, 'mathematics'],
+  ['Quantas arestas tem um tetraedro regular?', 6, 'mathematics'],
+  ['Quantos vértices tem um icosaedro regular?', 12, 'mathematics'],
+  ['Quantas faces pentagonais tem um dodecaedro regular?', 12, 'mathematics'],
+  ['Quantas faces retangulares laterais tem um prisma triangular reto?', 3, 'mathematics'],
+  ['Quantos lados tem um polígono chamado heptágono?', 7, 'mathematics'],
+  ['Quantos vértices tem um polígono chamado eneágono?', 9, 'mathematics'],
+  ['Quantos divisores positivos distintos tem o número 16?', 5, 'mathematics'],
+  ['Quantos números primos são menores que 10?', 4, 'mathematics'],
+  ['Quantos números inteiros estão estritamente entre 20 e 30?', 9, 'mathematics'],
+  ['Quantas casas de um tabuleiro de xadrez padrão são escuras?', 32, 'culture'],
+  ['Quantas cartas há em um baralho francês padrão sem curingas?', 52, 'culture'],
+  ['Quantos naipes diferentes há em um baralho francês padrão?', 4, 'culture'],
+  ['Quantos dentes de leite há na dentição humana completa?', 20, 'human-body'],
+  ['Quantos pulmões normalmente tem um ser humano?', 2, 'human-body'],
+  ['Quantos pares de cromossomos sexuais tem uma célula humana diploide típica?', 1, 'human-body'],
+  ['Quantos planetas do Sistema Solar ficam mais próximos do Sol que a Terra?', 2, 'science'],
+  ['Quantas letras tem a palavra brasileira ASTRONOMIA?', 10, 'culture'],
+  ['Quantas vogais diferentes há no alfabeto português padrão?', 5, 'culture'],
+  ['Quantas notas diferentes compõem uma escala diatônica antes da repetição na oitava?', 7, 'culture'],
+  ['Quantos vértices tem um prisma hexagonal?', 12, 'mathematics'],
+  ['Quantas cores distintas há na bandeira nacional da França?', 3, 'geography'],
+];
+export const labCandidatesPt = facts.map(([question, answer, category]) => ({ question, answer, category,
+  unit: 'count', difficulty: 'easy', explanation: `Dado sintético de teste: a resposta numérica definida é ${answer}. Não representa verificação externa.`,
+  sourceUrl: 'https://example.org/test-reference', referenceDate: null, locale: 'pt-BR', measurement: null }));

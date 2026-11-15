@@ -1,3 +1,4 @@
+import { requestTranslator } from '../../../i18n/request.mjs';
 import { questionLab } from '../../../server/question-lab.mjs';
 import { requestIdentity, newIdentity, identityCookie, readLabBody, labError } from '../../../server/lab-http.mjs';
 
@@ -5,16 +6,18 @@ export const maxDuration = 30;
 const headers = { 'Cache-Control': 'no-store' };
 
 export async function GET(request) {
+  const t = requestTranslator(request);
   try {
     const pack = await questionLab.get(new URL(request.url).searchParams.get('id'), requestIdentity(request).owner);
     return Response.json({ pack }, { headers });
   } catch (error) {
     const { status, message, code } = labError(error, 'get');
-    return Response.json({ error: message, ...(code && { code }) }, { status, headers });
+    return Response.json({ error: t(message), ...(code && { code }) }, { status, headers });
   }
 }
 
 export async function POST(request) {
+  const t = requestTranslator(request);
   // Cookie-authenticated mutations are same-origin and accept only bounded JSON.
   const origin = request.headers.get('origin');
   const url = new URL(request.url);
@@ -23,11 +26,11 @@ export async function POST(request) {
   const protocol = request.headers.get('x-forwarded-proto') === 'https' ? 'https:' : url.protocol;
   const expectedOrigin = `${protocol}//${request.headers.get('host') ?? url.host}`;
   if ((origin && origin !== expectedOrigin) || request.headers.get('sec-fetch-site') === 'cross-site') {
-    return Response.json({ error: 'Open the lab from this game to continue.' }, { status: 403, headers });
+    return Response.json({ error: t('Open the lab from this game to continue.') }, { status: 403, headers });
   }
   let body;
   try { body = await readLabBody(request); }
-  catch { return Response.json({ error: 'Invalid question lab request.' }, { status: 400, headers }); }
+  catch { return Response.json({ error: t('Invalid question lab request.') }, { status: 400, headers }); }
   let identity = requestIdentity(request);
   if (body.action === 'create' && !identity.owner) identity = newIdentity();
   try {
@@ -43,6 +46,6 @@ export async function POST(request) {
     return Response.json({ pack }, { headers: { ...headers, ...(action === 'create' && { 'Set-Cookie': identityCookie(identity.token) }) } });
   } catch (error) {
     const { status, message, code } = labError(error, body.action);
-    return Response.json({ error: message, ...(code && { code }) }, { status, headers: { ...headers, ...(status === 429 && { 'Retry-After': '3600' }) } });
+    return Response.json({ error: t(message), ...(code && { code }) }, { status, headers: { ...headers, ...(status === 429 && { 'Retry-After': '3600' }) } });
   }
 }

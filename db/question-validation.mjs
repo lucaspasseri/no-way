@@ -52,16 +52,16 @@ export function validateCandidate(input, existing = []) {
   }
   const candidate = parsed.data;
   const wording = candidate.question.toLowerCase();
-  if (!wording.endsWith('?') || /\b(best|worst|beautiful|favorite|favourite|in your opinion|roughly|about how)\b/.test(wording)) {
+  if (!wording.endsWith('?') || /\b(best|worst|beautiful|favorite|favourite|in your opinion|roughly|about how|melhor|pior|favorito|favorita|na sua opinião)\b/.test(wording)) {
     throw questionError('AMBIGUOUS_QUESTION', 'Use an objective, clearly scoped numerical question ending in a question mark.');
   }
-  if (/\b(approximate|approximately|estimated|estimate)\b/.test(wording) && !/\b(nearest|rounded|decimal|according to)\b/.test(wording)) {
+  if (/\b(approximate|approximately|estimated|estimate|aproximadamente|estimado|estimada)\b/.test(wording) && !/\b(nearest|rounded|decimal|according to|arredondad[oa]|decimais|segundo|de acordo)\b/.test(wording)) {
     throw questionError('IMPRECISE_QUESTION', 'Specify the reference and rounding rule for approximate values.');
   }
-  if (!wording.includes(candidate.unit.toLowerCase()) && !(candidate.unit === 'count' && /\bhow many\b/.test(wording))) {
+  if (!wording.includes(candidate.unit.toLowerCase()) && !(candidate.unit === 'count' && /\b(?:how many|quantos|quantas)\b/.test(wording))) {
     throw questionError('MISSING_UNIT', 'Include the answer unit and its scale explicitly in the question. Use count for dimensionless counts.');
   }
-  if (/\b(current|currently|latest|today|now|population|gdp|record|ranking|ranked|as of|this year|this month)\b/.test(wording)
+  if (/\b(current|currently|latest|today|now|population|gdp|record|ranking|ranked|as of|this year|this month|atual|atualmente|hoje|agora|população|recorde|neste ano|neste mês)\b/.test(wording)
     && (!candidate.referenceDate || !wording.includes(candidate.referenceDate))) {
     throw questionError('REFERENCE_DATE_REQUIRED', 'Time-dependent questions must include an explicit YYYY-MM-DD reference date in both the question and referenceDate.');
   }

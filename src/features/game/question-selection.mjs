@@ -1,3 +1,4 @@
+import { localeSchema, unitSystemSchema } from '../../i18n/config.mjs';
 import { z } from 'zod';
 import { categories, difficulties } from '../../../db/question-validation.mjs';
 
@@ -7,6 +8,8 @@ import { categories, difficulties } from '../../../db/question-validation.mjs';
 const id = z.number().int().positive().max(2147483647);
 export const recentQuestionLimit = 200;
 export const selectionSchema = z.strictObject({
+  locale: localeSchema.optional(),
+  unitSystem: unitSystemSchema.optional(),
   mode: z.enum(['next', 'random']).default('next'),
   category: z.union([z.literal(''), z.enum(categories)]).default(''),
   difficulty: z.union([z.literal(''), z.enum(difficulties)]).default(''),

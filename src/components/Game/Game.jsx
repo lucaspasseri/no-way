@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from '@/i18n/LocalizationProvider';
 
 import { useEffect, useRef } from "react";
 import QuestionCard from "../QuestionCard";
@@ -15,6 +16,7 @@ import { GameIdScope } from "@/features/game/GameIds";
 
 /** @param {{ questions: import('@/features/game/game-rules.mjs').Question[], options: import('@/features/game/question-selection.mjs').QuestionOptions }} props */
 export default function Game({ questions, options, pack = null }) {
+	const { locale } = useI18n();
 	const [preferences, updatePreferences] = useQuestionPreferences(options);
 	const game = useGame(questions, preferences, pack);
 	const { state, currentQuestion } = game;
@@ -49,7 +51,7 @@ export default function Game({ questions, options, pack = null }) {
 					<div className={styles.content}>
 						<QuestionCard
 							headingRef={headingRef}
-							currentQuestion={currentQuestion}
+							currentQuestion={currentQuestion?.localization ? { ...currentQuestion, question: currentQuestion.localization.texts[locale] ?? currentQuestion.localization.texts.en } : currentQuestion}
 							isLocked={state.isLocked}
 							canChangeQuestion={!state.isLocked && !pending && !game.packComplete}
 							pending={pending}

@@ -1,14 +1,18 @@
+"use client";
+
+import { useI18n } from "@/i18n/LocalizationProvider";
 import styles from "./page.module.css";
 import gameStyles from "@/components/Game/Game.module.css";
 import headerStyles from "@/components/LayoutHeader/LayoutHeader.module.css";
 import questionStyles from "@/components/QuestionCard/QuestionCard.module.css";
 import guessStyles from "@/components/GuessSection/GuessSection.module.css";
 import skeleton from "./loading.module.css";
-
 export default function Loading() {
-  return (
-    <main className={styles.main} aria-label='Loading game' role='status' aria-busy='true'>
-      <span className={questionStyles.srOnly}>Loading questions…</span>
+  const {
+    t
+  } = useI18n();
+  return <main className={styles.main} aria-label={t("Loading game")} role='status' aria-busy='true'>
+      <span className={questionStyles.srOnly}>{t("Loading questions…")}</span>
       <div className={gameStyles.container} aria-hidden='true'>
         <div className={headerStyles.header}>
           <div className={headerStyles.brand}>
@@ -51,6 +55,5 @@ export default function Loading() {
         </div>
         <div className={gameStyles.footer}><div className={`${skeleton.bar} ${skeleton.timer}`} /></div>
       </div>
-    </main>
-  );
+    </main>;
 }

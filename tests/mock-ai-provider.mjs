@@ -1,6 +1,7 @@
 // Explicit opt-in test preload. Never imported by app code and never uses a key.
 // Intercepts the HTTP boundary so browser tests exercise the real server/DB flow.
 import { setTimeout } from 'node:timers/promises';
+import { labCandidatesPt } from './fixtures/lab-candidates-pt.mjs';
 import { labCandidates } from './fixtures/lab-candidates.mjs';
 import { similarQuestion } from '../db/question-validation.mjs';
 import bank from '../db/seed/questions.json' with { type: 'json' };
@@ -16,7 +17,8 @@ globalThis.fetch = async (input, init) => {
   const existing = /Do not repeat these question texts \(JSON data\): (\[.*\])/.exec(prompt);
   const texts = existing ? JSON.parse(existing[1]) : [];
   if (prompt.includes('Browser provider timeout')) throw new DOMException('Synthetic provider deadline', 'TimeoutError');
-  let candidates = labCandidates.filter(question => !bank.some(row => similarQuestion(question.question, row.question))
+  const localized = prompt.includes('natural Brazilian Portuguese');
+  let candidates = (localized ? labCandidatesPt : labCandidates).filter(question => !bank.some(row => similarQuestion(question.question, row.question))
     && !texts.some(text => similarQuestion(question.question, text))).slice(0, count);
   if (prompt.includes('Browser provider failure')) return Response.json({ error: { message: 'test provider unavailable', code: 503 } }, { status: 503 });
   if (prompt.includes('Browser partial pack')) candidates = texts.some(text => text === labCandidates[16].question) ? [] : labCandidates.slice(16, 18);

@@ -18,7 +18,7 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
     await page.waitForLoadState('networkidle');
     const regularQuestion = await question.textContent();
     await page.getByRole('button', { name: 'Lock question', exact: true }).click();
-    await page.getByRole('spinbutton', { name: 'New guess' }).fill('12');
+    await page.getByRole('textbox', { name: 'New guess' }).fill('12');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByText('1 guess placed', { exact: true }).waitFor();
     await page.locator('summary[aria-label="Game settings"]:visible').click();
@@ -47,7 +47,7 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
     await page.getByRole('link', { name: 'Start playing', exact: true }).click();
     await question.waitFor();
     await page.getByRole('button', { name: 'Lock question', exact: true }).click();
-    const input = page.getByRole('spinbutton', { name: 'New guess' });
+    const input = page.getByRole('textbox', { name: 'New guess' });
     await input.fill('0'); await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByRole('button', { name: 'Doubt guess', exact: true }).click();
     await page.getByText('Challenge failed! The guess is still valid. Keep playing.', { exact: true }).waitFor();

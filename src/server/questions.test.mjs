@@ -138,3 +138,19 @@ it('handles legacy missing metadata without exposing answers or internal workflo
   query = async () => ({ rows: [{ id: 1, question: 'How many?', answer: '0', category: null, difficulty: null, status: 'curated' }] });
   assert.deepEqual(await selectQuestion(), { id: 1, question: 'How many?' });
 });
+
+it('selects and challenges the same localized metric answer while keeping source evidence private', async () => {
+  const source = questions.find(question => question.id === 54);
+  query = async () => ({ rows: [{ ...source, id: 987 }] });
+  const preferences = { locale: 'pt-BR', unitSystem: 'metric' };
+  const selected = await selectQuestion(preferences);
+  assert.equal(selected.id, 987); assert.match(selected.question, /Lago Superior.*metros/);
+  assert.equal(selected.localization.converted, true);
+  assert.ok(!('answer' in selected) && !('explanation' in selected) && !('explanationTexts' in selected));
+  assert.deepEqual(await challengeQuestion(987, 406, preferences), { success: false });
+  const result = await challengeQuestion(987, 407, preferences);
+  assert.equal(result.answer, 406); assert.equal(result.question.question, selected.question);
+  assert.match(result.question.explanation, /profundidade máxima/);
+  assert.equal(result.question.explanationTexts.en, source.explanation);
+  assert.equal(source.unit, 'feet'); assert.equal(source.answer, '1332');
+});

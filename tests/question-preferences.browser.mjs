@@ -20,7 +20,7 @@ export default async function verifyQuestionPreferences(page, { baseURL = 'http:
     check(await category.locator('option').count() === 11, 'Categories must reflect eligible seed data');
     const first = await title.textContent();
     await lock.click();
-    await page.getByRole('spinbutton', { name: 'New guess' }).fill('10');
+    await page.getByRole('textbox', { name: 'New guess' }).fill('10');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await category.selectOption('science'); await difficulty.selectOption('medium');
     check(await title.textContent() === first, 'Filter changes must preserve the active question');
@@ -93,7 +93,7 @@ export default async function verifyQuestionPreferences(page, { baseURL = 'http:
     await page.reload(); await page.waitForLoadState('networkidle');
     await category.selectOption('science'); await difficulty.selectOption('medium');
     await lock.click();
-    await page.getByRole('spinbutton', { name: 'New guess' }).fill('1000000000000');
+    await page.getByRole('textbox', { name: 'New guess' }).fill('1000000000000');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByRole('button', { name: 'Doubt guess', exact: true }).click();
     await page.getByRole('heading', { name: 'Challenge successful!', exact: true }).waitFor();

@@ -17,7 +17,7 @@ export function publicPack(row) {
   return { id: row.id, config: row.config, expiresAt: row.expires_at, status,
     accepted: questions.length, attempts, maxAttempts: maxAttempts(row.config.count), rejected,
     lastError, lastErrorCode: row.data.lastErrorCode ?? null, verification: 'unverified', reported: reports,
-    questions: questions.map(question => ({ ...publicQuestion(question), origin: 'ai', status: 'generated', verification: 'unverified' })) };
+    questions: questions.map(question => ({ ...publicQuestion(question), contentLocale: row.config.locale ?? 'en', origin: 'ai', status: 'generated', verification: 'unverified' })) };
 }
 
 /** Private temporary packs use the existing candidate schema, not canonical taxonomy writes. */
@@ -108,7 +108,7 @@ export function createLabService({ pool = getPool, options = getQuestionOptions,
       const row = await owned(pool(), id, owner);
       const question = row.data.questions.find(question => question.id === questionId);
       if (!question || !['ready', 'partial'].includes(row.data.status)) throw questionError('PACK_UNAVAILABLE', 'This question is unavailable.');
-      return resolveChallenge(guess, { ...publicQuestion(question), answer: question.answer,
+      return resolveChallenge(guess, { ...publicQuestion(question), contentLocale: row.config.locale ?? 'en', answer: question.answer,
         explanation: question.explanation, ...(question.sourceUrl && { src: question.sourceUrl }),
         'src-label': 'AI-suggested reference · not checked', origin: 'ai', status: 'generated', verification: 'unverified' });
     },

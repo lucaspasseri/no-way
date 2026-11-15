@@ -29,7 +29,7 @@ export default async function verifyGame(page, { baseURL = 'http://localhost:300
     // Let the initial scripts and hydration finish before testing event handlers.
     await page.waitForLoadState('networkidle');
     const firstQuestion = await title.textContent();
-    const input = page.getByRole('spinbutton', { name: 'New guess' });
+    const input = page.getByRole('textbox', { name: 'New guess' });
     check(await input.isDisabled(), 'Guessing starts disabled');
     const next = page.getByRole('button', { name: 'Next question', exact: true });
     await next.click();

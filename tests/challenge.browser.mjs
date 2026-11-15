@@ -6,7 +6,7 @@ export default async function verifyChallenges(page, { baseURL = 'http://localho
     await page.locator('#question-title').waitFor();
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Lock question', exact: true }).click();
-    await page.getByRole('spinbutton', { name: 'New guess' }).fill('1000000000000');
+    await page.getByRole('textbox', { name: 'New guess' }).fill('1000000000000');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByText('1 guess placed', { exact: true }).waitFor();
   }

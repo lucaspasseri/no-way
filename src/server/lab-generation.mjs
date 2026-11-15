@@ -1,3 +1,6 @@
+import { localizationDuplicateTexts } from './question-localization.mjs';
+import { parseNumber } from '../i18n/config.mjs';
+import { screenLocalization } from '../features/lab/localization.mjs';
 import 'server-only';
 import { validateCandidate } from '../../db/question-validation.mjs';
 import { generateCandidates } from '../../db/generate-questions.mjs';
@@ -35,12 +38,14 @@ function generationFailure(error, remaining) {
 
 // These checks screen obvious defects; they do not certify factual accuracy.
 export function screenLabCandidate(input, existing, config) {
-  const question = validateCandidate(input, existing);
+  const question = validateCandidate(screenLocalization(input, config), existing);
   if (config.topicMode === 'categories' && !config.categories.includes(question.category)) throw new Error('Wrong category');
   if (config.difficulty !== 'mixed' && question.difficulty !== config.difficulty) throw new Error('Wrong difficulty');
-  if (/\b(roughly|approximately|estimated|estimate|on average|average|most popular|largest|smallest|fastest|oldest|tallest|richest|net worth|followers|subscribers)\b/i.test(question.question)) throw new Error('Unstable or ambiguous');
+  if (/\b(roughly|approximately|estimated|estimate|on average|average|most popular|largest|smallest|fastest|oldest|tallest|richest|net worth|followers|subscribers|aproximadamente|estimado|estimada|em média|média|maior|menor|mais rápido|mais antigo|mais alto|mais rico|seguidores|inscritos)\b/i.test(question.question)) throw new Error('Unstable or ambiguous');
   if (/\b(porn|sexual|suicide|self.harm|explosive|weapon|api key|system prompt)\b/i.test(question.question + ' ' + question.explanation)) throw new Error('Unsafe content');
   // A common model failure is to put the solution in the public prompt itself.
+  const numericTokens = question.question.match(/(?<![\p{L}\p{N}])[+-]?\d+(?:[.,]\d+)*(?![\p{L}\p{N}])/gu) ?? [];
+  if (numericTokens.some(token => parseNumber(token, config.locale ?? 'en') === question.answer)) throw new Error('Answer disclosed');
   const answerToken = String(question.answer);
   if (new RegExp(`(^|[^\\p{L}\\p{N}])${answerToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}]|$)`, 'u').test(question.question.replaceAll(',', ''))) throw new Error('Answer disclosed');
   return question;
@@ -53,14 +58,15 @@ export async function advanceGeneration(config, data, existing, generate = gener
     const batch = await generate({ count: Math.min(labChunkSize, config.count - next.questions.length),
       preferences: { topic: config.topicMode === 'custom' ? config.topic : config.topicMode === 'surprise' ? 'surprise me' : '',
         categories: config.topicMode === 'categories' ? config.categories : [], difficulty: config.difficulty,
+        locale: config.locale ?? 'en', unitSystem: config.unitSystem ?? 'original',
         knowledge: config.knowledge, challenge: config.knowledge === 'custom' ? config.challenge : '' },
       // Only repeat already-generated pack text to the provider. The full bank
       // and other private packs stay local and are still screened below.
       existing: next.questions, timeoutMs: 20000, allowPartial: true });
     for (const candidate of batch.candidates) {
       try {
-        const accepted = screenLabCandidate(candidate, [...existing, ...next.questions], config);
-        next.questions.push({ ...accepted, id: next.questions.length + 1, origin: 'ai', status: 'generated',
+        const accepted = screenLabCandidate(candidate, localizationDuplicateTexts([...existing, ...next.questions], config.locale), config);
+        next.questions.push({ ...accepted, locale: config.locale ?? 'en', unitSystem: config.unitSystem ?? 'original', id: next.questions.length + 1, origin: 'ai', status: 'generated',
           verification: 'unverified', model: batch.model, generatedAt: new Date().toISOString() });
       } catch { next.rejected += 1; }
     }

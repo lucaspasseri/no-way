@@ -1,3 +1,5 @@
+import { localizedMetadata } from '../../i18n/translations.mjs';
+import { localeSchema, unitSystemSchema } from '../../i18n/config.mjs';
 import { z } from 'zod';
 
 export const knowledgeLevels = ['any', 'kindergarten', 'elementary', 'high-school', 'college', 'expert', 'custom'];
@@ -7,6 +9,8 @@ const preferenceText = z.string().trim().min(2).max(160)
   .refine(value => !/\b(ignore|override|system prompt|instructions|api key|password|porn|sexual|suicide|self.harm|explosive|weapon)\b/i.test(value), 'Choose a family-friendly trivia topic or learning level.');
 
 export const labConfigSchema = z.strictObject({
+  locale: localeSchema.default('en'),
+  unitSystem: unitSystemSchema.default('original'),
   count: z.union([z.literal(10), z.literal(15), z.literal(20)]),
   topicMode: z.enum(['categories', 'custom', 'surprise']),
   categories: z.array(z.string().min(1).max(50)).max(3).default([]),
@@ -27,8 +31,8 @@ export const defaultLabConfig = { count: 10, topicMode: 'surprise', categories: 
 export const labChunkSize = 2;
 export const maxAttempts = count => Math.ceil(count / labChunkSize) + 2;
 
-export function topicLabel(config) {
-  return config.topicMode === 'custom' ? config.topic : config.topicMode === 'surprise' ? 'A curious mix' : config.categories.join(' + ');
+export function topicLabel(config, locale = 'en') {
+  return config.topicMode === 'custom' ? config.topic : config.topicMode === 'surprise' ? 'A curious mix' : config.categories.map(category => localizedMetadata(category, locale)).join(' + ');
 }
 
 /** A finite pack never wraps or silently falls back to the curated pool. */

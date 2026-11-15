@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/LocalizationProvider';
 import { useEffect, useReducer, useRef } from 'react';
 import { rememberQuestion } from './question-selection.mjs';
 import { canChallengeGuess, createGameState, gameReducer, getQuestionAnswer } from './game-rules.mjs';
@@ -7,6 +8,7 @@ import { useGameSessions } from './GameSessions';
 /** @param {import('./game-rules.mjs').Question[]} questions
  * @param {import('./question-selection.mjs').QuestionPreferences} preferences */
 export default function useGame(questions, preferences, pack = null) {
+  const { locale, unitSystem } = useI18n();
   const sessions = useGameSessions();
   const sessionKey = pack?.id ?? 'curated';
   const [state, dispatch] = useReducer(gameReducer, questions[0], question => sessions?.get(sessionKey)?.state ?? ({ ...createGameState(), selectedQuestion: question }));
@@ -32,6 +34,7 @@ export default function useGame(questions, preferences, pack = null) {
       const response = await fetch(pack ? '/api/question-lab' : '/api/challenge', { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionId: currentQuestion.id, guess: guess.value,
+          ...(!pack && currentQuestion.localization && { localization: { locale, unitSystem: currentQuestion.localization.unitSystem } }),
           ...(pack && { action: 'challenge', id: pack.id }) }), signal: AbortSignal.timeout(15000) });
       const payload = await response.json();
       if (!response.ok || !payload.result || typeof payload.result.success !== 'boolean') throw new Error();
@@ -61,7 +64,7 @@ export default function useGame(questions, preferences, pack = null) {
       selection.current = null;
       return;
     }
-    const params = new URLSearchParams({ ...preferences, mode,
+    const params = new URLSearchParams({ ...preferences, locale, unitSystem, mode,
       after: String(currentQuestion?.id ?? 0), recent: recent.current.join(',') });
     try {
       const response = await fetch('/api/questions?' + params, {

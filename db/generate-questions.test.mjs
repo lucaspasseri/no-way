@@ -39,3 +39,19 @@ it('can retain a smaller genuine lab batch without weakening the operator CLI co
   const batch = await generateCandidates({ count: 5, allowPartial: true, timeoutMs: 20000, preferences: { topic: 'Pokémon', knowledge: 'expert' } });
   assert.equal(batch.candidates.length, 1);
 });
+
+it('requests native localized generation with explicit unit metadata and unchanged custom topics', async () => {
+  for (const locale of ['en', 'pt-BR']) for (const unitSystem of ['original', 'metric']) {
+    request = async options => {
+      assert.match(options.prompt, locale === 'pt-BR' ? /natural Brazilian Portuguese/ : /Write question and explanation directly in English/);
+      assert.ok(options.prompt.includes('Biologia molecular'));
+      assert.match(options.prompt, unitSystem === 'metric' ? /Use metric measurements only/ : /Keep the units of the referenced fact/);
+      const properties = options.responseSchema.properties.candidates.items.properties;
+      assert.ok(properties.locale && properties.measurement);
+      assert.ok(!properties.status && !properties.verified);
+      return { model: 'test/model', text: '{"candidates":[]}' };
+    };
+    const result = await generateCandidates({ count: 2, allowPartial: true, preferences: { locale, unitSystem, topic: 'Biologia molecular' } });
+    assert.deepEqual(result.candidates, []);
+  }
+});
