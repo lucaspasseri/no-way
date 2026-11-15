@@ -3,6 +3,9 @@ import { pathToFileURL } from 'node:url';
 import { OpenRouter } from '@openrouter/sdk';
 
 export const DEFAULT_MODEL = 'particle-ai/particle-1:free';
+export const DEFAULT_FALLBACK_MODELS = Object.freeze([
+  'nvidia/nemotron-3.5-super-vl:free',
+]);
 const DEFAULT_PROMPT = 'Reply with exactly: OK';
 
 export class OpenRouterRequestError extends Error {
@@ -38,18 +41,39 @@ function requestError(error) {
     error?.name === 'ConnectionError' ? 'AI_NETWORK_ERROR' : 'AI_PROVIDER_ERROR');
 }
 
-/** Make a single bounded request using the official SDK. No automatic retries.
- * @param {{ model?: string, prompt?: string, responseSchema?: object, maxOutputTokens?: number }} options
+function selectedModels({ model, models }) {
+  let values;
+  if (models !== undefined) {
+    if (model != null || !Array.isArray(models) || !models.length) {
+      throw new OpenRouterRequestError('Provide either one model override or an ordered model list.', 'AI_MODEL_INVALID');
+    }
+    values = models;
+  } else if (model != null && model !== '') {
+    // An explicit CLI/operator override stays pinned to the requested model.
+    values = [model];
+  } else {
+    const fallbacks = process.env.OPENROUTER_FALLBACK_MODELS;
+    values = [process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODEL,
+      ...(fallbacks === undefined ? DEFAULT_FALLBACK_MODELS : fallbacks.trim() ? fallbacks.split(',') : [])];
+  }
+  if (values.some(value => typeof value !== 'string' || value.trim().length > 200
+    || !/^[a-z0-9~][a-z0-9._~-]*\/[a-z0-9][a-z0-9._:~/-]*$/i.test(value.trim()))) {
+    throw new OpenRouterRequestError('Use valid model slugs such as particle-ai/particle-1:free from https://openrouter.ai/models.', 'AI_MODEL_INVALID');
+  }
+  const unique = [...new Set(values.map(value => value.trim()))];
+  if (unique.length > 3) throw new OpenRouterRequestError('Choose at most three models, including the primary model.', 'AI_MODEL_INVALID');
+  return unique;
+}
+
+/** One bounded SDK request. OpenRouter routes the ordered list; no client retry loop.
+ * @param {{ model?: string, models?: string[], prompt?: string, responseSchema?: object, maxOutputTokens?: number, timeoutMs?: number }} options
  */
-export async function requestOpenRouter({ model, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128, timeoutMs = 30000 } = {}) {
+export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128, timeoutMs = 30000 } = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
     throw new OpenRouterRequestError('OPENROUTER_API_KEY is not set. Create a key at https://openrouter.ai/keys and add it to .env or your server environment.', 'AI_NOT_CONFIGURED');
   }
-  const selectedModel = model?.trim() || process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODEL;
-  if (!selectedModel.includes('/') || /\s/.test(selectedModel)) {
-    throw new OpenRouterRequestError('Use a model slug such as particle-ai/particle-1:free from https://openrouter.ai/models.', 'AI_MODEL_INVALID');
-  }
+  const routingModels = selectedModels({ model, models });
   if (typeof prompt !== 'string' || !prompt.trim()) {
     throw new OpenRouterRequestError('Provide a nonempty text prompt.', 'AI_REQUEST_INVALID');
   }
@@ -66,7 +90,7 @@ export async function requestOpenRouter({ model, prompt = DEFAULT_PROMPT, respon
     });
     response = await client.responses.send({
       responsesRequest: {
-        model: selectedModel,
+        ...(routingModels.length === 1 ? { model: routingModels[0] } : { models: routingModels }),
         input: prompt,
         maxOutputTokens,
         ...(responseSchema && { text: { format: { type: 'json_schema', name: 'question_candidates', strict: true, schema: responseSchema } },
@@ -92,7 +116,10 @@ export async function requestOpenRouter({ model, prompt = DEFAULT_PROMPT, respon
     .map(part => part.text)
     .join('');
   if (!text.trim()) throw new OpenRouterRequestError('OpenRouter returned no text. Try a different model or prompt.', 'AI_EMPTY_RESPONSE');
-  return { model: response.model || selectedModel, text };
+  if (!response.model?.trim() && routingModels.length > 1) {
+    throw new OpenRouterRequestError('OpenRouter did not identify the model used for this response.', 'AI_INVALID_RESPONSE');
+  }
+  return { model: response.model || routingModels[0], text };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

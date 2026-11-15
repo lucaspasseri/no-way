@@ -106,8 +106,27 @@ Free providers have availability and rate limits. Browse current slugs at
 npm run openrouter:test -- particle-ai/particle-1:free "Say hello in one sentence."
 ```
 
-You can also set `OPENROUTER_MODEL` in `.env`; an explicit CLI model takes
-precedence. Node loads `.env` if present, and existing shell environment variables
+`OPENROUTER_MODEL` selects the primary model. The app sends an ordered fallback
+list through OpenRouter's native `models` routing, starting with Particle-1,
+then `nvidia/nemotron-3.5-super-vl:free`. Both defaults are free models supporting
+the structured-output request and disabled reasoning.
+
+Set `OPENROUTER_FALLBACK_MODELS` to a comma-separated list of at most two backups
+to replace the default backup. An empty value disables fallbacks. Duplicate IDs are
+removed while preserving order. Explicit CLI model arguments (including
+`questions --model`) pin that request to the specified model for diagnostics.
+Paid model IDs in an operator-configured list can incur charges; default lists
+contain only free models.
+
+Fallback is handled inside one OpenRouter request, sharing the original timeout
+and output budget. The SDK does not make extra client-side retry requests.
+Gateway errors can trigger failover; a local deadline aborting the entire request
+or an invalid question batch returned with success does not start another model
+request. Use valid catalog IDs: nonexistent IDs and incompatible request settings
+can be rejected before fallback routing starts. The response's actual model is kept in question provenance. See
+[OpenRouter model fallback behavior](https://openrouter.ai/docs/guides/routing/model-fallbacks).
+
+Node loads `.env` if present, and existing shell environment variables
 take precedence. The command runs only in Node, sends no game or database data,
 and exposes no public web endpoint. It uses a 30-second request timeout, a
 128-token output limit, and no automatic retries. Missing keys, authentication,

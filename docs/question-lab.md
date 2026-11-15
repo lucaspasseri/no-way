@@ -14,6 +14,28 @@ are reused. No new provider or dependency is required. The configured model must
 support [structured output through the Responses API](https://openrouter.ai/docs/guides/features/structured-outputs). Free model/provider capacity
 can vary; unsupported or unavailable upstreams produce a recoverable failure.
 
+The default model order is Particle-1 → NVIDIA Nemotron 3.5 Super VL,
+both using their `:free` endpoints. `OPENROUTER_MODEL` changes the primary;
+`OPENROUTER_FALLBACK_MODELS` replaces the default backup with up to two ordered
+backups. Set it empty to disable backups. Lists are validated, deduplicated, and
+limited to three total models. Explicit operator `--model` overrides remain pinned to that one model.
+All configured endpoints must support the same schema and `reasoning.effort=none`.
+
+OpenRouter's native `models` list performs the failover within one SDK call.
+All models share the original 20-second lab deadline; switching models does not
+extend it. The gateway can fall back on rate limits, unavailable endpoints, and
+other routing errors. A client-side timeout or successful response containing
+invalid questions does not trigger a new client request. Nonexistent catalog IDs
+and incompatible request settings can be rejected before routing begins. The existing bounded lab
+attempt budget remains responsible for subsequent requests. Question provenance
+records the model actually returned by OpenRouter. Defaults stay free; adding paid
+IDs explicitly in server configuration can incur their published charges.
+
+Live verification confirmed NVIDIA can return two structurally accepted questions
+and that the gateway selects it when a provider filter excludes the primary's
+endpoint. These checks establish routing and schema compatibility, not factual
+verification of generated answers.
+
 For an existing compatible database, install only the additive temporary-pack
 table and its indexes:
 

@@ -1,15 +1,40 @@
 // Exercise the real SDK's serialization and response parsing, intercepting HTTP.
 import { it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { requestOpenRouter, DEFAULT_MODEL } from './openrouter.mjs';
+import { requestOpenRouter, DEFAULT_MODEL, DEFAULT_FALLBACK_MODELS } from './openrouter.mjs';
 
 beforeEach(t => {
-  const previous = process.env.OPENROUTER_API_KEY;
+  const previous = { key: process.env.OPENROUTER_API_KEY, model: process.env.OPENROUTER_MODEL, fallbacks: process.env.OPENROUTER_FALLBACK_MODELS };
   process.env.OPENROUTER_API_KEY = 'http-test-key';
+  delete process.env.OPENROUTER_MODEL;
+  delete process.env.OPENROUTER_FALLBACK_MODELS;
   t.after(() => {
-    if (previous === undefined) delete process.env.OPENROUTER_API_KEY;
-    else process.env.OPENROUTER_API_KEY = previous;
+    if (previous.key === undefined) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = previous.key;
+    if (previous.model === undefined) delete process.env.OPENROUTER_MODEL; else process.env.OPENROUTER_MODEL = previous.model;
+    if (previous.fallbacks === undefined) delete process.env.OPENROUTER_FALLBACK_MODELS; else process.env.OPENROUTER_FALLBACK_MODELS = previous.fallbacks;
   });
+});
+
+it('serializes native fallback routing in one HTTP request and returns the selected backup provenance', async t => {
+  const selected = DEFAULT_FALLBACK_MODELS[0];
+  const transport = t.mock.method(globalThis, 'fetch', async request => {
+    const body = await request.json();
+    assert.deepEqual(body.models, [DEFAULT_MODEL, ...DEFAULT_FALLBACK_MODELS]);
+    assert.equal('model' in body, false);
+    assert.equal(body.provider.require_parameters, true);
+    assert.equal(body.text.format.type, 'json_schema');
+    return Response.json({
+      id: 'resp_fallback', object: 'response', model: selected, status: 'completed',
+      created_at: 0, completed_at: 1, error: null, incomplete_details: null,
+      frequency_penalty: null, presence_penalty: null, temperature: null, top_p: null,
+      instructions: null, metadata: null, parallel_tool_calls: false, tool_choice: 'auto', tools: [],
+      output: [{ id: 'msg_fallback', type: 'message', role: 'assistant', status: 'completed',
+        content: [{ type: 'output_text', text: '{"candidates":[]}', annotations: [] }] }],
+    });
+  });
+  const result = await requestOpenRouter({ responseSchema: { type: 'object', properties: { candidates: { type: 'array' } }, required: ['candidates'], additionalProperties: false } });
+  assert.deepEqual(result, { model: selected, text: '{"candidates":[]}' });
+  assert.equal(transport.mock.callCount(), 1);
 });
 
 it('the real SDK authenticates, serializes the Responses request, and parses a successful response', async t => {
