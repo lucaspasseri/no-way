@@ -12,6 +12,7 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
   };
   page.on('response', track);
   try {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(baseURL);
     const question = page.locator('[id$="question-title"]:visible');
     await question.waitFor();
@@ -21,7 +22,7 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
     await page.getByRole('textbox', { name: 'New guess' }).fill('12');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByText('1 guess placed', { exact: true }).waitFor();
-    await page.locator('summary[aria-label="Game settings"]:visible').click();
+    await page.locator('button[aria-label="Game settings"]:visible').click();
     await page.getByRole('link', { name: /AI Question Lab/ }).click();
     await page.getByRole('heading', { name: /AI Question Lab/ }).waitFor();
     await page.getByRole('button', { name: 'Categories', exact: true }).click();
@@ -69,15 +70,19 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
     await page.getByRole('button', { name: 'Lock question', exact: true }).click();
     await input.fill('1000000'); await page.getByRole('button', { name: 'Send', exact: true }).click();
     await page.getByRole('button', { name: 'Doubt guess', exact: true }).click();
-    await page.getByRole('button', { name: 'Pack complete', exact: true }).waitFor();
-    check(await page.getByRole('button', { name: 'Pack complete', exact: true }).isDisabled(), 'Completed pack must have an honest ending');
-    await page.getByRole('link', { name: 'Return to regular game', exact: true }).click();
+    await page.getByRole('link', { name: 'Generate another batch', exact: true }).waitFor();
+    await page.getByText('2 of 10 available questions played.', { exact: true }).waitFor();
+    await page.getByRole('link', { name: 'Back to AI Lab', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit configuration', exact: true }).waitFor();
+    check(await page.getByText('Pokémon', { exact: false }).count() > 0, 'Returning must restore the generation summary');
+    await page.getByRole('link', { name: 'Back to game', exact: true }).click();
+    await page.getByRole('link', { name: 'Back to main game', exact: true }).click();
     await question.waitFor();
     check(await question.textContent() === regularQuestion, 'Returning must restore the original question');
     check(await page.getByText('1 guess placed', { exact: true }).isVisible(), 'Lab navigation must retain regular guesses');
     check(await input.isEnabled(), 'Lab navigation must retain the question lock');
 
-    await page.locator('summary[aria-label="Game settings"]:visible').click();
+    await page.locator('button[aria-label="Game settings"]:visible').click();
     await page.getByRole('link', { name: /AI Question Lab/ }).click();
     await page.getByRole('button', { name: 'Edit configuration', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Edit configuration', exact: true }).click();
@@ -85,6 +90,35 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
     await page.getByRole('button', { name: 'Generate 10 questions', exact: true }).click();
     await page.getByText(/Only 2 of 10 questions passed screening/).waitFor({ timeout: 90000 });
     check(await page.getByRole('link', { name: 'Start playing', exact: true }).isVisible(), 'An accepted partial pack must be playable');
+    const partialPack = payloads.map(payload => payload.pack).filter(Boolean).at(-1);
+    await page.getByRole('link', { name: 'Start playing', exact: true }).click();
+    await page.getByText('2 of 10 requested questions are available. This batch is ready to play.', { exact: true }).waitFor();
+    for (let index = 0; index < 2; index++) {
+      await question.waitFor();
+      await page.getByRole('button', { name: 'Lock question', exact: true }).click();
+      await input.fill('1000000');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+      await page.getByRole('button', { name: 'Doubt guess', exact: true }).click();
+      await page.getByRole('heading', { name: 'Challenge successful!', exact: true }).waitFor();
+      if (index === 0) await page.getByRole('button', { name: 'Play another round', exact: true }).click();
+    }
+    await page.getByText('2 of 2 available questions played.', { exact: true }).waitFor();
+    check(await page.locator('main').getByRole('alert').count() === 0, 'Partial batch completion is a normal result');
+    if (screenshotDirectory) {
+      await page.screenshot({ path: `${screenshotDirectory}/partial-batch-complete.png`, fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      check(await page.evaluate(() => document.documentElement.scrollWidth === innerWidth), 'Partial results must fit a mobile viewport');
+      await page.screenshot({ path: `${screenshotDirectory}/partial-batch-complete-mobile.png`, fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 960 });
+    }
+    const attempts = partialPack.attempts;
+    await page.getByRole('link', { name: 'Generate another batch', exact: true }).click();
+    await page.getByRole('button', { name: 'Generate 10 questions', exact: true }).waitFor();
+    check(await page.getByLabel('Your rabbit hole').inputValue() === 'Browser partial pack', 'Generation preferences must be retained');
+    check(payloads.map(payload => payload.pack).filter(Boolean).at(-1).attempts === attempts, 'Opening generation settings must not make a paid request');
+    await page.getByRole('link', { name: 'Back to game', exact: true }).click();
+    await page.getByRole('link', { name: 'Back to AI Lab', exact: true }).click();
+    await page.getByText(/Only 2 of 10 questions passed screening/).waitFor();
     await page.getByRole('button', { name: 'Edit configuration', exact: true }).click();
     await page.getByLabel('Your rabbit hole').fill('Browser provider failure');
     await page.getByRole('button', { name: 'Generate 10 questions', exact: true }).click();
@@ -101,9 +135,9 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
       check(actual === width, `Lab overflows at ${width}px`); dimensions.push({ width, actual });
     }
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.locator('nav summary').click();
+    await page.locator('nav button[aria-haspopup="dialog"]').click();
     await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click();
-    await page.locator('nav summary').click();
+    await page.keyboard.press('Escape');
     if (screenshotDirectory) await page.screenshot({ path: `${screenshotDirectory}/lab-dark.png`, fullPage: true });
     check(errors.length === 0, `Runtime errors: ${errors.join('; ')}`);
     return { generated: 10, screenedAttempts: 5, uniqueQuestionsPlayed: seen.length, partial: 2, providerRecovery: 'passed', roundPreservation: 'passed', publicAnswersHidden: 'passed', dimensions, errors };
@@ -115,7 +149,7 @@ export async function verifyInterruptedPack(page, { baseURL = 'http://127.0.0.1:
   await page.goto(baseURL);
   await page.locator('#question-title').waitFor();
   await page.waitForLoadState('networkidle');
-  await page.locator('summary[aria-label="Game settings"]:visible').click();
+  await page.locator('button[aria-label="Game settings"]:visible').click();
   await page.getByRole('link', { name: /AI Question Lab/ }).click();
   await page.getByRole('button', { name: 'My own topic', exact: true }).click();
   await page.getByLabel('Your rabbit hole').fill('Browser interruption test');
@@ -132,7 +166,7 @@ export async function verifyInterruptedPack(page, { baseURL = 'http://127.0.0.1:
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   check(saved?.attempts === 1 && saved.accepted > 0, 'An in-flight batch must commit accepted questions after navigation');
-  await page.locator('summary[aria-label="Game settings"]:visible').click();
+  await page.locator('button[aria-label="Game settings"]:visible').click();
   await page.getByRole('link', { name: /AI Question Lab/ }).click();
   await page.getByRole('button', { name: 'Resume generation', exact: true }).waitFor();
   const paused = (await (await page.request.get(`${baseURL}/api/question-lab?id=${id}`)).json()).pack;

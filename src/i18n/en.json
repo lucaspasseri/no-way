@@ -394,5 +394,12 @@
   "The provider did not supply a reset. The Lab is briefly pausing requests to avoid repeated failures. This wait does not guarantee renewed quota.": "The provider did not supply a reset. The Lab is briefly pausing requests to avoid repeated failures. This wait does not guarantee renewed quota.",
   "No quota reset was supplied. Wait before checking availability again.": "No quota reset was supplied. Wait before checking availability again.",
   "Recovery does not validate questions. Normal screening still applies.": "Recovery does not validate questions. Normal screening still applies.",
-  "Latest batch": "Latest batch"
+  "Latest batch": "Latest batch",
+  "Close settings": "Close settings",
+  "Back to AI Lab": "Back to AI Lab",
+  "Generate another batch": "Generate another batch",
+  "Back to main game": "Back to main game",
+  "Batch navigation": "Batch navigation",
+  "{played} of {total} available questions played.": "{played} of {total} available questions played.",
+  "{available} of {requested} requested questions are available. This batch is ready to play.": "{available} of {requested} requested questions are available. This batch is ready to play."
 }

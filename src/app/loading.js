@@ -7,16 +7,17 @@ import headerStyles from "@/components/LayoutHeader/LayoutHeader.module.css";
 import questionStyles from "@/components/QuestionCard/QuestionCard.module.css";
 import guessStyles from "@/components/GuessSection/GuessSection.module.css";
 import skeleton from "./loading.module.css";
+import { BrandMark } from '@/components/Brand/Brand';
 export default function Loading() {
   const {
     t
   } = useI18n();
   return <main className={styles.main} aria-label={t("Loading game")} role='status' aria-busy='true'>
-      <span className={questionStyles.srOnly}>{t("Loading questions…")}</span>
+      <span className='sr-only'>{t("Loading questions…")}</span>
       <div className={gameStyles.container} aria-hidden='true'>
         <div className={headerStyles.header}>
           <div className={headerStyles.brand}>
-            <span className={headerStyles.logo}>!</span>
+            <BrandMark className={headerStyles.logo} />
             <div><h1>No Way</h1><div className={`${skeleton.bar} ${skeleton.progress}`} /></div>
           </div>
           <div className={`${skeleton.bar} ${skeleton.settings}`} />

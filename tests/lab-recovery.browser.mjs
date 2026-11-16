@@ -20,14 +20,14 @@ export default async function verifyLabRecovery(page, {baseURL='http://127.0.0.1
   check(await page.getByText('The provider was temporarily unavailable.',{exact:true}).count()>0,'The actual recovery trigger must be explained');
   await page.addStyleTag({content:'nextjs-portal {display:none!important}'});
   if(screenshotDirectory)await page.screenshot({path:`${screenshotDirectory}/recovery-success-en.png`,fullPage:true});
-  await page.locator('nav summary').click();
+  await page.locator('nav button[aria-haspopup="dialog"]').click();
   await page.getByLabel('Language',{exact:true}).selectOption('pt-BR');
-  await page.locator('nav summary').click();
+  await page.keyboard.press('Escape');
   await page.getByRole('heading',{name:'Geração recuperada',exact:true}).waitFor();
   check(await page.getByText('As perguntas foram geradas usando um modelo alternativo autorizado.',{exact:true}).isVisible(),'Recovery must translate after changing locale');
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>document.documentElement.scrollWidth===innerWidth);
-  await page.locator('nav summary').click();await page.getByRole('button',{name:'Ativar tema escuro',exact:true}).click();await page.locator('nav summary').click();
+  await page.locator('nav button[aria-haspopup="dialog"]').click();await page.getByRole('button',{name:'Ativar tema escuro',exact:true}).click();await page.keyboard.press('Escape');
   if(screenshotDirectory)await page.screenshot({path:`${screenshotDirectory}/recovery-success-pt-mobile-dark.png`,fullPage:true});
   check(errors.length===0,`Runtime errors: ${errors.join('; ')}`);
   return {accepted:pack.accepted,providerCalls:pack.attempts,recoveredBatchCalls:recovery.providerCalls,historyPreserved:true,locales:['en','pt-BR'],errors};

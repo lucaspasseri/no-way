@@ -1,8 +1,8 @@
 "use client";
 
 import { useI18n } from "@/i18n/LocalizationProvider";
-import { useEffect, useRef } from 'react';
-import { ChevronDown, RotateCcw, Settings } from 'react-feather';
+import { useRef } from 'react';
+import { RotateCcw, Settings, X } from 'react-feather';
 import Link from 'next/link';
 import ToggleTheme from '../ToggleTheme';
 import styles from './GameSettings.module.css';
@@ -16,44 +16,25 @@ export default function GameSettings({
   const { t, locale, unitSystem, updatePreferences } = useI18n();
   const settingsRef = useRef(null);
   const hintId = useGameId('reset-guesses-hint');
-  useEffect(() => {
-    const settings = settingsRef.current;
-    function handlePointerDown(event) {
-      if (!settings.contains(event.target)) settings.open = false;
-    }
-    function handleKeyDown(event) {
-      if (event.key === 'Escape' && settings.open) {
-        settings.open = false;
-        settings.querySelector('summary').focus();
-      }
-    }
-    document.addEventListener('pointerdown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+  const titleId = hintId + '-title';
+  function close() { settingsRef.current.close(); }
   function handleReset() {
     onResetGuesses();
-    const settings = settingsRef.current;
-    settings.open = false;
-    settings.querySelector('summary').focus();
+    close();
   }
-  return <details className={styles.container} ref={settingsRef} onBlur={event => {
-    // Safari can blur the summary without focusing a tapped button. Keep it
-    // visible until the click lands; outside taps are handled by pointerdown.
-    if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
-      event.currentTarget.open = false;
-    }
-  }}>
-      <summary aria-label={t("Game settings")}>
-        <Settings size={16} aria-hidden='true' /> {t("Settings")} <ChevronDown size={14} aria-hidden='true' className={styles.chevron} />
-      </summary>
-      <div className={styles.content}>
-        <Link href='/question-lab' className={styles.labLink} onClick={() => {
-        settingsRef.current.open = false;
-      }}>{t("✳ AI Question Lab")} <span>{t("Experimental")}</span></Link>
+  return <div className={styles.container}>
+      <button className={styles.trigger} aria-label={t("Game settings")} aria-haspopup='dialog' onClick={() => settingsRef.current.showModal()}>
+        <Settings size={16} aria-hidden='true' /> {t("Settings")}
+      </button>
+      {/* The native top layer escapes clipping/stacking contexts and makes the
+          underlying page inert. Escape, focus trapping and restoration are native. */}
+      <dialog className={styles.content} ref={settingsRef} aria-labelledby={titleId} onClick={event => {
+        if (event.target !== event.currentTarget) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
+      }}>
+        <div className={styles.heading}><h2 id={titleId}>{t("Game settings")}</h2><button className={styles.close} aria-label={t('Close settings')} onClick={close}><X size={20} aria-hidden='true' /></button></div>
+        <Link href='/question-lab' className={styles.labLink} onClick={close}>{t("✳ AI Question Lab")} <span>{t("Experimental")}</span></Link>
         <fieldset className={styles.localization}>
           <legend>{t('Language & Measurements')}</legend>
           <label htmlFor={hintId + '-language'}>{t('Language')}</label>
@@ -72,6 +53,6 @@ export default function GameSettings({
             <RotateCcw size={16} aria-hidden='true' />{t("Reset guesses")} </button>
         </div>
         <p id={hintId}>{t("Reset clears guesses and restarts the timer. The question stays locked. Available during play when a locked question has guesses.")}</p>
-      </div>
-    </details>;
+      </dialog>
+    </div>;
 }

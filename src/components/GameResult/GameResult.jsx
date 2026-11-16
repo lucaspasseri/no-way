@@ -5,6 +5,7 @@ import { ArrowRight, BookOpen, CheckCircle, ExternalLink } from 'react-feather';
 import { getGuessDifference } from '@/features/game/game-rules.mjs';
 import styles from './GameResult.module.css';
 import { useGameId } from '@/features/game/GameIds';
+import Link from 'next/link';
 
 /** @param {{ result: import('@/features/game/game-rules.mjs').ChallengeResult, onNextRound: () => void, error: string | null, pending: boolean, preferences: import('react').ReactNode, headingRef: import('react').RefObject<HTMLHeadingElement | null> }} props */
 export default function GameResult({
@@ -14,7 +15,9 @@ export default function GameResult({
   headingRef,
   pending,
   preferences,
-  complete = false
+  complete = false,
+  pack = null,
+  playedCount = 0
 }) {
   const {
     locale,
@@ -70,7 +73,14 @@ export default function GameResult({
       <footer className={styles.actions}>
         {preferences}
         {error && <p className={styles.error} role='alert'>{t(error)}</p>}
-        <button className='button' onClick={onNextRound} disabled={pending}>{complete ? t("Pack complete") : t("Play another round")}<ArrowRight size={17} aria-hidden='true' /></button>
+        {complete && pack ? <>
+          <p className={styles.packSummary} role='status'><strong>{t('Pack complete')}</strong><br /><span>{t('{played} of {total} available questions played.', { played: playedCount, total: pack.questions.length })}</span></p>
+          <Link className='button' href='/question-lab?configure=1'>{t('Generate another batch')}<ArrowRight size={17} aria-hidden='true' /></Link>
+        </> : <button className='button' onClick={onNextRound} disabled={pending}>{t("Play another round")}<ArrowRight size={17} aria-hidden='true' /></button>}
+        {pack && <nav className={styles.packNavigation} aria-label={t('Batch navigation')}>
+          <Link className='button button-secondary' href='/question-lab'>{t('Back to AI Lab')}</Link>
+          <Link href='/'>{t('Back to main game')}</Link>
+        </nav>}
       </footer>
     </section>;
 }

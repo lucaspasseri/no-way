@@ -6,7 +6,7 @@ export default async function verifyLocalization(page, { baseURL = 'http://127.0
   await page.evaluate(() => { sessionStorage.clear(); localStorage.clear(); });
   await page.reload();
   await page.getByRole('heading', { name: 'No Way', exact: true }).waitFor();
-  await page.getByLabel('Game settings', { exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Game settings', exact: true }).filter({ visible: true }).click();
   await page.getByLabel('Language', { exact: true }).filter({ visible: true }).selectOption('pt-BR');
   check(await page.getByLabel('Sistema de medidas', { exact: true }).filter({ visible: true }).inputValue() === 'metric', 'Portuguese initially defaults to metric');
   await page.getByLabel('Sistema de medidas', { exact: true }).filter({ visible: true }).selectOption('original');
@@ -14,21 +14,21 @@ export default async function verifyLocalization(page, { baseURL = 'http://127.0
   await page.getByLabel('Language', { exact: true }).filter({ visible: true }).selectOption('pt-BR');
   check(await page.getByLabel('Sistema de medidas', { exact: true }).filter({ visible: true }).inputValue() === 'original', 'An explicit original-unit preference survives language switches');
   await page.getByLabel('Sistema de medidas', { exact: true }).filter({ visible: true }).selectOption('metric');
-  await page.getByLabel('Configurações do jogo', { exact: true }).filter({ visible: true }).click();
+  await page.keyboard.press('Escape');
   const original = await page.locator('#question-title').textContent();
   await page.getByRole('button', { name: 'Bloquear pergunta', exact: true }).click();
   const input = page.getByRole('textbox', { name: 'Novo palpite', exact: true });
   await input.fill('1,5');
   await page.getByRole('button', { name: 'Enviar', exact: true }).click();
   check((await page.locator('#latest-guess-value').textContent()).trim() === '1,5', 'Portuguese decimals are parsed and formatted correctly');
-  await page.getByLabel('Configurações do jogo', { exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Configurações do jogo', exact: true }).filter({ visible: true }).click();
   await page.getByLabel('Idioma', { exact: true }).filter({ visible: true }).selectOption('en');
-  await page.getByLabel('Game settings', { exact: true }).filter({ visible: true }).click();
+  await page.keyboard.press('Escape');
   check((await page.locator('#latest-guess-value').textContent()).trim() === '1.5', 'Language switching preserves the numeric guess');
   check(await page.getByRole('button', { name: 'Unlock question', exact: true }).isEnabled(), 'Language switching preserves the lock');
-  await page.getByLabel('Game settings', { exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Game settings', exact: true }).filter({ visible: true }).click();
   await page.getByLabel('Language', { exact: true }).filter({ visible: true }).selectOption('pt-BR');
-  await page.getByLabel('Configurações do jogo', { exact: true }).filter({ visible: true }).click();
+  await page.keyboard.press('Escape');
   check(await page.locator('#question-title').textContent() === original, 'Question identity and translated wording are stable');
   await input.fill('1.234,5'); await page.getByRole('button', { name: 'Enviar', exact: true }).click();
   await page.getByRole('button', { name: 'Contestar palpite', exact: true }).click();
@@ -52,7 +52,7 @@ export default async function verifyLocalization(page, { baseURL = 'http://127.0
   await page.reload();
   check(await page.locator('html').getAttribute('lang') === 'pt-BR', 'Saved preferences survive reload');
 
-  await page.getByLabel('Configurações do jogo', { exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Configurações do jogo', exact: true }).filter({ visible: true }).click();
   await page.getByRole('link', { name: /Laboratório de perguntas com IA/ }).click();
   await page.getByRole('button', { name: 'Meu próprio tema', exact: true }).click();
   await page.getByLabel('Seu universo de curiosidades', { exact: true }).filter({ visible: true }).fill('Biologia molecular');
@@ -67,10 +67,10 @@ export default async function verifyLocalization(page, { baseURL = 'http://127.0
   const packQuestion = await page.locator('main:visible [id$="question-title"]').textContent();
   await page.getByRole('textbox', { name: 'Novo palpite', exact: true }).fill('1');
   await page.getByRole('button', { name: 'Enviar', exact: true }).click();
-  await page.getByLabel('Configurações do jogo', { exact: true }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Configurações do jogo', exact: true }).filter({ visible: true }).click();
   await page.getByLabel('Idioma', { exact: true }).filter({ visible: true }).selectOption('en');
   await page.getByLabel('Measurement system', { exact: true }).filter({ visible: true }).selectOption('original');
-  await page.getByLabel('Game settings', { exact: true }).filter({ visible: true }).click();
+  await page.keyboard.press('Escape');
   check(await page.locator('main:visible [id$="question-title"]').textContent() === packQuestion, 'Changing preferences preserves generated text and answers');
   check((await page.locator('main:visible [id$="latest-guess-value"]').textContent()).trim() === '1', 'Changing preferences keeps active pack guesses');
   await page.getByRole('textbox', { name: 'New guess', exact: true }).fill('1000');

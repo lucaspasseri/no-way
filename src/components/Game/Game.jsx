@@ -43,9 +43,9 @@ export default function Game({ questions, options, pack = null }) {
 				canReset={state.phase === "playing" && state.isLocked && state.guesses.length > 0}
 				onResetGuesses={game.resetGuesses}
 			/>
-			{pack && <ExperimentalPack pack={pack} questionId={currentQuestion?.id} index={state.questionIndex} complete={game.packComplete && state.phase === 'result'} />}
+			{pack && <ExperimentalPack pack={pack} questionId={currentQuestion?.id} index={state.questionIndex} showNavigation={state.phase !== 'result'} />}
 			{state.phase === "result" && state.challenge?.success ? (
-				<GameResult result={state.challenge} onNextRound={game.startNextRound} error={state.roundError} pending={pending || game.packComplete} complete={game.packComplete} preferences={preferenceControls} headingRef={headingRef} />
+				<GameResult result={state.challenge} onNextRound={game.startNextRound} error={state.roundError} pending={pending || game.packComplete} complete={game.packComplete} pack={pack} playedCount={state.playedQuestionIds?.length ?? 0} preferences={preferenceControls} headingRef={headingRef} />
 			) : (
 				<>
 					<div className={styles.content}>

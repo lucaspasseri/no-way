@@ -11,7 +11,7 @@ export default function ExperimentalPack({
   pack,
   questionId,
   index,
-  complete
+  showNavigation = true
 }) {
   const {
     t, locale
@@ -39,8 +39,8 @@ export default function ExperimentalPack({
     <div className={styles.top}><strong>{t("✳ Experimental ·")} {t(topicLabel(pack.config, locale))}</strong><span>{index + 1} / {pack.accepted}</span></div>
     <p>{t('This pack keeps its original language and measurements. New preferences apply to new packs.')} · {pack.config.locale ?? 'en'} · {t(pack.config.unitSystem === 'metric' ? 'Metric' : 'Original units')}</p>
     <p>{t("AI-generated answers are unverified and may be incorrect. Casual play only; these results don’t count toward competitive records.")}</p>
-    {complete && <p role='status'><strong>{t("Pack complete. You’ve explored every accepted question.")}</strong></p>}
-    <div className={styles.actions}><Link href='/'>{t("Return to regular game")}</Link><Link href='/question-lab'>{t("Create another pack")}</Link>
+    {pack.accepted < pack.config.count && <p>{t('{available} of {requested} requested questions are available. This batch is ready to play.', { available: pack.accepted, requested: pack.config.count })}</p>}
+    <div className={styles.actions}>{showNavigation && <><Link href='/'>{t("Return to regular game")}</Link><Link href='/question-lab'>{t("Back to AI Lab")}</Link></>}
       <button onClick={report} disabled={pending || reported.includes(questionId)}><Flag size={12} />{reported.includes(questionId) ? t("Question reported") : pending ? t("Saving report…") : t("Report questionable answer")}</button></div>
     {reported.includes(questionId) && <p role='status'>{t("Flag saved with this temporary pack. No factual review has been performed.")}</p>}
     {error && <p role='alert'>{t(error)}</p>}

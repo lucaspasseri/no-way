@@ -394,5 +394,12 @@
   "The provider did not supply a reset. The Lab is briefly pausing requests to avoid repeated failures. This wait does not guarantee renewed quota.": "O provedor não informou um horário de renovação. O Lab está pausando brevemente as requisições para evitar falhas repetidas. Essa espera não garante a renovação da cota.",
   "No quota reset was supplied. Wait before checking availability again.": "Nenhum horário de renovação de cota foi informado. Aguarde antes de verificar a disponibilidade novamente.",
   "Recovery does not validate questions. Normal screening still applies.": "A recuperação não valida as perguntas. A verificação normal continua sendo aplicada.",
-  "Latest batch": "Último lote"
+  "Latest batch": "Último lote",
+  "Close settings": "Fechar configurações",
+  "Back to AI Lab": "Voltar ao Lab de IA",
+  "Generate another batch": "Gerar outro lote",
+  "Back to main game": "Voltar ao jogo principal",
+  "Batch navigation": "Navegação do lote",
+  "{played} of {total} available questions played.": "{played} de {total} perguntas disponíveis jogadas.",
+  "{available} of {requested} requested questions are available. This batch is ready to play.": "{available} de {requested} perguntas solicitadas estão disponíveis. Este lote está pronto para jogar."
 }

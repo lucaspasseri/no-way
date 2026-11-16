@@ -136,6 +136,10 @@
 }
 
 .error { color: var(--color-error-text); text-align: center; }
+.packSummary { color: var(--color-muted); text-align: center; font-size: 13px; line-height: 1.8; }
+.packSummary strong { color: var(--color-primary); font-size: 17px; }
+.packNavigation { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 20px; font-size: 13px; }
+.packNavigation > a { min-height: 44px; display: inline-flex; align-items: center; }
 .srOnly {
   position: absolute;
   width: 1px;
@@ -154,7 +158,7 @@
   .hero { margin-bottom: 24px; }
   .comparison h3 { font-size: 19px; }
   .numbers > div { padding: 16px 14px; }
-  .actions > button { width: 100%; }
+  .actions > :global(.button) { width: 100%; }
 }
 
 @media (max-width: 359px) {

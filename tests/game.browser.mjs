@@ -59,7 +59,7 @@ export default async function verifyGame(page, { baseURL = 'http://localhost:300
     check(await input.isDisabled(), 'Unlocking disables guess entry');
     await page.getByRole('button', { name: 'Lock question', exact: true }).click();
     check(await page.getByText('2 guesses placed', { exact: true }).isVisible(), 'Relocking must retain guesses');
-    await page.getByLabel('Game settings', { exact: true }).click();
+    await page.getByRole('button', { name: 'Game settings', exact: true }).click();
     await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click();
     await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
     await page.getByRole('button', { name: 'Reset guesses', exact: true }).click();

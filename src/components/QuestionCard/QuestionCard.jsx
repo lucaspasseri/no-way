@@ -31,7 +31,7 @@ export default function QuestionCard({
   const titleId = useGameId('question-title');
   const hintId = useGameId('question-controls-hint');
   return <section className={styles.container} aria-labelledby={titleId}>
-      <div className={styles.main + ' surface-enter'} key={id}>
+      <div className={styles.main + ' surface-enter'} key={id} aria-busy={pending}>
         <BigLetter letter='Q' />
         <div className={styles.questionAndDetails}>
           <div className={styles.details}>

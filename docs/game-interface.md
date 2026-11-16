@@ -44,9 +44,10 @@ Pass Turn, Forfeit, and a separate No Way action are absent.
 - Next advances by database ID within selected category/difficulty preferences, with wraparound. Random
   prefers unseen session IDs and selects a different question whenever alternatives exist. Selecting another question
   clears only question-specific state: guesses, result, lock, and timer origins.
-- `GameSettings` is a native, keyboard-operable header dropdown containing
-  theme switching and Reset guesses. Reset is enabled for a locked question
-  with guesses and calls the existing handler immediately, without a dialog.
+- `GameSettings` is a native modal `<dialog>` containing language, measurements,
+  theme switching and Reset guesses. Its top layer escapes card clipping and
+  decorative stacking contexts. Reset is enabled for a locked question
+  with guesses and calls the existing handler immediately.
   It clears guesses and restarts timers, preserving the selected
   question, its lock, and the theme. Opening or closing settings changes no game state.
   Reset is disabled after a round resolves; it cannot dismiss a result.
@@ -102,12 +103,26 @@ outcome heading (with its description), or to the new question heading when
 another round begins. Failed challenges announce feedback through a polite status
 region without moving focus. The result and comparison have brief, staggered entrances.
 Motion respects reduced-motion preferences.
-The settings dropdown closes on Escape, an outside click, or focus leaving it;
-Escape returns focus to its header trigger.
-Focus dismissal requires a known destination outside the dropdown. Safari touch
-buttons can blur the trigger without receiving focus, so a null focus destination
-keeps the dropdown open long enough for theme and reset clicks to run.
-Reset also closes the dropdown and returns focus to that trigger.
+Settings makes the underlying page inert and uses native focus management. Escape,
+the close button, clicking the backdrop, and Reset dismiss it and restore trigger
+focus. Its content scrolls within the viewport on narrow or short screens.
+
+The shared branding links home through App Router navigation, retaining in-memory
+game sessions. A red speech bubble with a white question mark is shared by the
+header, loading skeleton and `app/icon.svg`; `app/favicon.ico` contains matching
+16, 32 and 48 pixel fallbacks. Next.js file conventions provide their metadata.
+The initial skeleton announces progress through a visually hidden status. Later
+question selection keeps the current content and announces loading or errors in
+the existing preferences status region. The question area exposes `aria-busy`.
+
+AI batch results retain the pack origin. During a batch, the existing next-round
+action remains primary. At the end, it is replaced by **Generate another batch**,
+which opens `/question-lab?configure=1` with saved preferences and awaits an
+explicit generation action. **Back to AI Lab** restores the saved generation
+summary; **Back to main game** restores the curated session. Partial packs end at
+their actual available count. Session metadata counts distinct questions with
+accepted guesses, so skipped questions are not reported as played. The underlying
+round reducer and challenge rules remain the same.
 
 ## Verification
 
@@ -138,3 +153,12 @@ The repository has no configured end-to-end runner. Browser checks use already
 installed session tooling and add no dependency. Automated checks do not replace
 manual screen-reader or real-device testing. Clean builds require network access
 for the existing Google Fonts integration.
+
+`tests/ui-polish.browser.mjs` exports a Playwright helper for settings layering,
+focus, dismissal and scrolling at 320/390/768/1440 pixels, loading/error retention,
+branding navigation, session preservation and favicon responses. Pass it a fresh
+Page and the same preview options as `tests/question-lab.browser.mjs`. The latter
+also completes a partial batch, checks played counts, and exercises both result
+links back to the Lab without automatic generation. Start generation checks with
+a fresh `tests/lab-preview.mjs` database: previously used fixtures are correctly
+rejected as duplicates on repeat runs.

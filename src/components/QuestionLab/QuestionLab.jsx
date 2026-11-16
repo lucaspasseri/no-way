@@ -9,6 +9,7 @@ import { labRequest } from '@/features/lab/client.mjs';
 import { cooldownActive, cooldownUntil } from '@/features/lab/diagnostics.mjs';
 import { useGameSessions } from '@/features/game/GameSessions';
 import GameSettings from '../GameSettings';
+import Brand from '../Brand/Brand';
 import styles from './QuestionLab.module.css';
 import LabErrorResult, { ModelRouting } from './LabErrorResult';
 import RecoverySummary from './RecoverySummary';
@@ -44,7 +45,8 @@ function PackArt({
 }
 export default function QuestionLab({
   categories,
-  unavailable = false
+  unavailable = false,
+  configure = false
 }) {
   const {
     t, locale, unitSystem,
@@ -55,6 +57,7 @@ export default function QuestionLab({
     ...defaultLabConfig
   });
   const [pack, setPack] = useState(null);
+  const [editing, setEditing] = useState(configure);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [requestDetails, setRequestDetails] = useState(null);
@@ -67,7 +70,7 @@ export default function QuestionLab({
   const running = useRef(false);
   const titleRef = useRef(null);
   const returnHref = sessions?.get('lastGame') ?? '/';
-  const details = requestDetails ?? pack?.errorDetails;
+  const details = requestDetails ?? (editing && !pack?.errorDetails?.rateLimit?.accountWide ? null : pack?.errorDetails);
   const blocked = cooldownActive(details, now);
   const retryAt = cooldownUntil(details);
   useEffect(() => {
@@ -133,6 +136,7 @@ export default function QuestionLab({
       return;
     }
     running.current = true;
+    setEditing(false);
     setBusy(true);
     setError('');
     setRequestDetails(null);
@@ -212,22 +216,19 @@ export default function QuestionLab({
   function edit() {
     restoreController.current?.abort();
     setRestoring(false);
-    setPack(null);
+    setEditing(true);
     setError('');
     // Retain a known account cooldown while the player edits configuration.
     setRequestDetails(details?.rateLimit?.accountWide ? details : null);
     setDismissed(false);
-    try {
-      sessionStorage.removeItem('no-way:lab-pack');
-    } catch {/* Optional recovery. */}
   }
-  const generating = busy || pack?.status === 'generating';
-  const completed = pack && !generating;
+  const generating = !editing && (busy || pack?.status === 'generating');
+  const completed = pack && !generating && !editing;
   const generationError = error || pack?.lastError;
   const valid = labConfigSchema.safeParse({ ...config, locale, unitSystem }).success;
-  const recovered = pack?.recoveries?.filter(item => item.outcome === 'completed' && (item.usedAlternative || item.providerCalls > 1)).at(-1);
+  const recovered = !editing && pack?.recoveries?.filter(item => item.outcome === 'completed' && (item.usedAlternative || item.providerCalls > 1)).at(-1);
   return <main className={styles.lab}>
-    <nav className={styles.nav} aria-label={t("Lab navigation")}><Link href={returnHref}><ArrowLeft size={16} />{t("Back to game")}</Link><span>NO WAY <span className={styles.navSlash}>/</span> {t("EXPERIMENTS")}</span><GameSettings canReset={false} onResetGuesses={() => {}} /></nav>
+    <nav className={styles.nav} aria-label={t("Lab navigation")}><Link href={returnHref}><ArrowLeft size={16} />{t("Back to game")}</Link><Brand compact /><GameSettings canReset={false} onResetGuesses={() => {}} /></nav>
     <header className={styles.hero}>
       <div><span className={styles.eyebrow}><span className={styles.dot} />{t("A LITTLE CURIOSITY. A LOT OF POSSIBILITIES.")}</span>
         <h1>{locale === 'pt-BR' ? t("Lab") : t("AI Question")} <span>{locale === 'pt-BR' ? t("AI Question") : t("Lab")}<span className={styles.spark}>✳</span></span></h1>
@@ -235,7 +236,7 @@ export default function QuestionLab({
       </div><div className={styles.experimental}><Zap size={15} /><span>{t("Experimental")}<br /><small>{t("Fresh from the imagination")}</small></span></div>
     </header>
 
-    {pack && <p role='status'>{t('This pack keeps its original language and measurements. New preferences apply to new packs.')} · {pack.config.locale ?? 'en'} · {t(pack.config.unitSystem === 'metric' ? 'Metric' : 'Original units')}</p>}
+    {pack && !editing && <p role='status'>{t('This pack keeps its original language and measurements. New preferences apply to new packs.')} · {pack.config.locale ?? 'en'} · {t(pack.config.unitSystem === 'metric' ? 'Metric' : 'Original units')}</p>}
     <div className={styles.notice}><span aria-hidden='true'>✳</span><p><strong>{t("Curiosity welcome. A little skepticism, too.")}</strong> {t("AI can get facts wrong. Packs are generated and structurally screened, but their answers are not independently verified. Just for casual play.")}</p></div>
     {unavailable && <p role='alert' className={styles.error}>{t("The question database is unavailable. Please try again later.")}</p>}
     {!busy && (!details || dismissed) && recovered && <RecoverySummary recovery={recovered} />}

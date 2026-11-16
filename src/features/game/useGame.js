@@ -1,7 +1,8 @@
 import { useI18n } from '../../i18n/LocalizationProvider';
 import { useEffect, useReducer, useRef } from 'react';
 import { rememberQuestion } from './question-selection.mjs';
-import { canChallengeGuess, createGameState, gameReducer, getQuestionAnswer } from './game-rules.mjs';
+import { canChallengeGuess, createGameState, getQuestionAnswer } from './game-rules.mjs';
+import { gameSessionReducer } from './game-session.mjs';
 import { nextPackQuestion } from '../lab/config.mjs';
 import { useGameSessions } from './GameSessions';
 
@@ -11,7 +12,7 @@ export default function useGame(questions, preferences, pack = null) {
   const { locale, unitSystem } = useI18n();
   const sessions = useGameSessions();
   const sessionKey = pack?.id ?? 'curated';
-  const [state, dispatch] = useReducer(gameReducer, questions[0], question => sessions?.get(sessionKey)?.state ?? ({ ...createGameState(), selectedQuestion: question }));
+  const [state, dispatch] = useReducer(gameSessionReducer, questions[0], question => sessions?.get(sessionKey)?.state ?? ({ ...createGameState(), selectedQuestion: question }));
   const currentQuestion = state.selectedQuestion;
   const selection = useRef(null);
   const recent = useRef(sessions?.get(sessionKey)?.recent ?? (questions[0] ? [questions[0].id] : []));

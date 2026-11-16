@@ -83,9 +83,9 @@ export default async function verifyLabErrors(page, { baseURL = 'http://127.0.0.
     }
     if (screenshotDirectory) await page.screenshot({ path: `${screenshotDirectory}/lab-daily-quota-pt-desktop.png`, fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('nav summary').click();
+    await page.locator('nav button[aria-haspopup="dialog"]').click();
     await page.getByRole('button', { name: 'Ativar tema escuro', exact: true }).click();
-    await page.locator('nav summary').click();
+    await page.keyboard.press('Escape');
     if (screenshotDirectory) await page.screenshot({ path: `${screenshotDirectory}/lab-daily-quota-pt-mobile-dark.png`, fullPage: true });
     await changeLocale('en');
     const inspected = [];

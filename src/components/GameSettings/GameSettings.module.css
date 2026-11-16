@@ -4,7 +4,7 @@
   min-width: 0;
 }
 
-.container summary {
+.trigger {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -17,23 +17,34 @@
   cursor: pointer;
   list-style: none;
   border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
 }
 
-.container summary::-webkit-details-marker { display: none; }
-.container summary:hover { color: var(--color-primary); }
-.container[open] .chevron { transform: rotate(180deg); }
+.trigger:hover { color: var(--color-primary); }
 
 .content {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: min(300px, calc(100vw - 40px));
-  padding: 16px;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(380px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
+  color: var(--color-on-surface);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
   border: 1px solid var(--color-outline);
   border-radius: var(--radius-md);
   background: var(--color-surface-card);
   box-shadow: 0 8px 24px rgb(30 27 46 / 16%);
 }
+.content::backdrop { background: rgb(20 17 35 / 48%); }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.heading h2 { font-size: 22px; }
+.close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border: 1px solid var(--color-outline); border-radius: var(--radius-sm); background: var(--color-surface-card); color: inherit; cursor: pointer; }
 
 .actions {
   display: flex;
@@ -41,7 +52,7 @@
   gap: 8px;
 }
 
-.labLink { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-primary-border); border-radius: 12px; background: var(--color-primary-background); font-size: 13px; font-weight: 700; text-decoration: none; }
+.labLink { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-primary-border); border-radius: 12px; background: var(--color-primary-background); font-size: 13px; font-weight: 700; text-decoration: none; }
 .labLink span { color: var(--color-muted); font-size: 10px; font-weight: 500; }
 
 .actions button {
@@ -61,4 +72,5 @@
 .localization { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; min-width: 0; }
 .localization legend { font-weight: 700; margin-bottom: 10px; }
 .localization label { font-size: .85rem; }
-.localization select { width: 100%; padding: 8px; border-radius: 8px; background: var(--color-surface-card); color: inherit; border: 1px solid currentColor; }
+.localization select { width: 100%; min-height: 44px; padding: 8px; border-radius: 8px; background: var(--color-surface-card); color: inherit; border: 1px solid var(--color-outline); }
+@media (max-width: 599px) { .localization select { font-size: 16px; } }
