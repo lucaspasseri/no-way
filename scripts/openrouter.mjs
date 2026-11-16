@@ -1,5 +1,6 @@
 // Node-only smoke test. Credentials are read at request time and never logged.
 import { pathToFileURL } from 'node:url';
+import { HTTPClient } from '@openrouter/sdk/lib/http.js';
 import { OpenRouter } from '@openrouter/sdk';
 
 export const DEFAULT_MODEL = 'particle-ai/particle-1:free';
@@ -68,7 +69,7 @@ function selectedModels({ model, models }) {
 /** One bounded SDK request. OpenRouter routes the ordered list; no client retry loop.
  * @param {{ model?: string, models?: string[], prompt?: string, responseSchema?: object, maxOutputTokens?: number, timeoutMs?: number }} options
  */
-export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128, timeoutMs = 30000 } = {}) {
+export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128, timeoutMs = 30000, trace } = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
     throw new OpenRouterRequestError('OPENROUTER_API_KEY is not set. Create a key at https://openrouter.ai/keys and add it to .env or your server environment.', 'AI_NOT_CONFIGURED');
@@ -78,6 +79,7 @@ export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT
     throw new OpenRouterRequestError('Provide a nonempty text prompt.', 'AI_REQUEST_INVALID');
   }
 
+  trace?.addSensitive([apiKey, prompt]);
   let response;
   // Keep one explicit deadline through both headers and response-body decoding.
   const deadline = AbortSignal.timeout(timeoutMs);
@@ -87,6 +89,7 @@ export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT
       serverURL: 'https://openrouter.ai/api/v1',
       timeoutMs,
       retryConfig: { strategy: 'none' },
+      ...(trace && { httpClient: new HTTPClient({ fetcher: trace.transport({ models: routingModels, timeoutMs, maxOutputTokens, responseSchema }) }) }),
     });
     response = await client.responses.send({
       responsesRequest: {
@@ -100,26 +103,33 @@ export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT
         store: false,
       },
     }, { signal: deadline });
-  } catch (error) {
-    if (deadline.aborted) throw requestError({ name: 'TimeoutError' });
-    throw requestError(error);
-  }
+    trace?.sdkParsed(response);
 
-  if (response.status !== 'completed' || !Array.isArray(response.output)) {
-    const limited = response.incompleteDetails?.reason === 'max_output_tokens';
-    throw new OpenRouterRequestError('OpenRouter did not complete the response. Try a different model or a shorter prompt.', limited ? 'AI_OUTPUT_LIMIT' : 'AI_INCOMPLETE_RESPONSE');
+    if (response.status !== 'completed' || !Array.isArray(response.output)) {
+      const limited = response.incompleteDetails?.reason === 'max_output_tokens';
+      throw new OpenRouterRequestError('OpenRouter did not complete the response. Try a different model or a shorter prompt.', limited ? 'AI_OUTPUT_LIMIT' : 'AI_INCOMPLETE_RESPONSE');
+    }
+    const text = response.output
+      .filter(item => item.type === 'message')
+      .flatMap(item => item.content)
+      .filter(part => part.type === 'output_text')
+      .map(part => part.text)
+      .join('');
+    if (!text.trim()) throw new OpenRouterRequestError('OpenRouter returned no text. Try a different model or prompt.', 'AI_EMPTY_RESPONSE');
+    if (!response.model?.trim() && routingModels.length > 1) {
+      throw new OpenRouterRequestError('OpenRouter did not identify the model used for this response.', 'AI_INVALID_RESPONSE');
+    }
+    return { model: response.model || routingModels[0], text };
+  } catch (error) {
+    const timedOut = deadline.aborted;
+    // Persist the original HTTP snapshot before mapping it to a public error.
+    // A slow diagnostics write must not reclassify a 429 as a later timeout.
+    await trace?.drain();
+    const failure = error instanceof OpenRouterRequestError ? error : requestError(timedOut ? { name: 'TimeoutError' } : error);
+    trace?.failure(error, 'sdk', failure.code);
+    await trace?.flush();
+    throw failure;
   }
-  const text = response.output
-    .filter(item => item.type === 'message')
-    .flatMap(item => item.content)
-    .filter(part => part.type === 'output_text')
-    .map(part => part.text)
-    .join('');
-  if (!text.trim()) throw new OpenRouterRequestError('OpenRouter returned no text. Try a different model or prompt.', 'AI_EMPTY_RESPONSE');
-  if (!response.model?.trim() && routingModels.length > 1) {
-    throw new OpenRouterRequestError('OpenRouter did not identify the model used for this response.', 'AI_INVALID_RESPONSE');
-  }
-  return { model: response.model || routingModels[0], text };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

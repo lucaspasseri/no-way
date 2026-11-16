@@ -19,10 +19,15 @@ export async function applySchema(client) {
 	const sql = await readFile(new URL("./schema.sql", import.meta.url), "utf8");
 	await client.query(sql);
 	await applyLabSchema(client);
+	await applyTraceSchema(client);
 }
 
 export async function applyLabSchema(client) {
 	await client.query(await readFile(new URL('./lab-schema.sql', import.meta.url), 'utf8'));
+}
+
+export async function applyTraceSchema(client) {
+	await client.query(await readFile(new URL('./openrouter-traces-schema.sql', import.meta.url), 'utf8'));
 }
 
 if (
@@ -32,7 +37,8 @@ if (
 	let pool;
 	try {
 		pool = getPool();
-		if (process.argv.includes('--lab-only')) await applyLabSchema(pool);
+		if (process.argv.includes('--traces-only')) await applyTraceSchema(pool);
+		else if (process.argv.includes('--lab-only')) await applyLabSchema(pool);
 		else await applySchema(pool);
 		console.log("Question schema initialized. Existing data was preserved.");
 	} catch (error) {

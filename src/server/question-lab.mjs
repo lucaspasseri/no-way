@@ -5,6 +5,7 @@ import { publicQuestion, getQuestionOptions } from './questions.mjs';
 import { labConfigSchema, maxAttempts, packIdSchema } from '../features/lab/config.mjs';
 import { resolveChallenge, validateGuess } from '../features/game/game-rules.mjs';
 import { advanceGeneration } from './lab-generation.mjs';
+import { cooldownActive, cooldownUntil, publicModels, sanitizePublicDetails } from '../features/lab/diagnostics.mjs';
 
 export function publicPack(row) {
   const { questions, attempts, rejected, status, lastError: storedError, reports = [] } = row.data;
@@ -16,12 +17,33 @@ export function publicPack(row) {
       : 'This pack is closed. Generate a new pack or keep any accepted questions.') ?? null;
   return { id: row.id, config: row.config, expiresAt: row.expires_at, status,
     accepted: questions.length, attempts, maxAttempts: maxAttempts(row.config.count), rejected,
-    lastError, lastErrorCode: row.data.lastErrorCode ?? null, verification: 'unverified', reported: reports,
+    lastError, lastErrorCode: row.data.lastErrorCode ?? null,
+    errorDetails: sanitizePublicDetails(row.data.errorDetails),
+    models: publicModels({ request: { primaryModel: row.data.models?.primary, fallbackModels: row.data.models?.fallbacks },
+      routing: { successfulModel: row.data.models?.successful, confirmedAttempts: row.data.models?.confirmedAttempts?.map(model => ({ model })), notSelected: row.data.models?.notSelected } }),
+    verification: 'unverified', reported: reports,
     questions: questions.map(question => ({ ...publicQuestion(question), contentLocale: row.config.locale ?? 'en', origin: 'ai', status: 'generated', verification: 'unverified' })) };
 }
 
 /** Private temporary packs use the existing candidate schema, not canonical taxonomy writes. */
 export function createLabService({ pool = getPool, options = getQuestionOptions, generate } = {}) {
+  async function guardAccountCooldown(client) {
+    // The sanitized failure is committed with the pack even if optional trace
+    // persistence fails. Shared PostgreSQL state guards all players/instances.
+    const { rows } = await client.query(`SELECT data->'errorDetails' AS details FROM public.question_lab_packs
+      WHERE data#>>'{errorDetails,category}' = 'daily_quota'
+        AND data#>>'{errorDetails,rateLimit,accountWide}' = 'true'
+        AND GREATEST(data#>>'{errorDetails,rateLimit,resetAt}', data#>>'{errorDetails,rateLimit,retryAt}') > $1
+      ORDER BY GREATEST(data#>>'{errorDetails,rateLimit,resetAt}', data#>>'{errorDetails,rateLimit,retryAt}') DESC LIMIT 1`, [new Date().toISOString()]);
+    const details = sanitizePublicDetails(rows[0]?.details);
+    if (!cooldownActive(details)) return;
+    // This is an account restriction, not a new request or another pack's batch.
+    details.models = publicModels(null);
+    details.request = { batchNumber: null, attemptNumber: null, httpStatus: 429, durationMs: null };
+    details.validation = { received: null, accepted: null, rejected: null };
+    delete details.referenceId;
+    throw Object.assign(questionError('AI_DAILY_COOLDOWN', details.message), { details, retryAt: cooldownUntil(details) });
+  }
   async function transaction(work) {
     const client = await pool().connect();
     try {
@@ -66,11 +88,13 @@ export function createLabService({ pool = getPool, options = getQuestionOptions,
           if (previous.owner_hash !== owner || new Date(previous.expires_at) <= new Date()) throw questionError('PACK_UNAVAILABLE', 'This pack is unavailable.');
           return publicPack(previous);
         }
+        await guardAccountCooldown(client);
         const { rows: [usage] } = await client.query(`SELECT count(*)::integer AS total,
           count(*) FILTER (WHERE owner_hash = $1)::integer AS personal FROM public.question_lab_packs
           WHERE created_at > CURRENT_TIMESTAMP - interval '1 hour'`, [owner]);
         if (usage.personal >= 3 || usage.total >= 12) throw questionError('LAB_RATE_LIMIT', 'The lab has reached its hourly generation limit. Try again in an hour.');
-        await client.query('DELETE FROM public.question_lab_packs WHERE expires_at <= CURRENT_TIMESTAMP');
+        await client.query(`DELETE FROM public.question_lab_packs WHERE expires_at <= CURRENT_TIMESTAMP
+          AND COALESCE(GREATEST(data#>>'{errorDetails,rateLimit,resetAt}', data#>>'{errorDetails,rateLimit,retryAt}'), '') <= $1`, [new Date().toISOString()]);
         const data = { questions: [], attempts: 0, rejected: 0, status: 'generating', lastError: null, reports: [] };
         const { rows: [row] } = await client.query(`INSERT INTO public.question_lab_packs(id, owner_hash, config, data)
           VALUES ($1, $2, $3::jsonb, $4::jsonb) RETURNING *`, [id, owner, JSON.stringify(config), JSON.stringify(data)]);
@@ -84,6 +108,8 @@ export function createLabService({ pool = getPool, options = getQuestionOptions,
       return transaction(async client => {
         const row = await owned(client, id, owner, true);
         if (row.data.status !== 'generating' || row.data.attempts !== expectedAttempt) return publicPack(row);
+        if (cooldownActive(row.data.errorDetails)) return publicPack(row);
+        await guardAccountCooldown(client);
         // At most two provider calls at a time across all server instances.
         let lane = await client.query('SELECT pg_try_advisory_xact_lock(782402) AS acquired');
         if (!lane.rows[0].acquired) lane = await client.query('SELECT pg_try_advisory_xact_lock(782403) AS acquired');
@@ -91,7 +117,7 @@ export function createLabService({ pool = getPool, options = getQuestionOptions,
         const { rows: existing } = await client.query(`SELECT question FROM public.questions
           UNION ALL SELECT candidate->>'question' AS question FROM public.question_lab_packs,
           jsonb_array_elements(data->'questions') AS candidate WHERE expires_at > CURRENT_TIMESTAMP AND id <> $1`, [id]);
-        const data = await advanceGeneration(row.config, row.data, existing, generate);
+        const data = await advanceGeneration(row.config, row.data, existing, generate, { packId: row.id });
         return save(client, row, data);
       });
     },

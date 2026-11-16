@@ -5,12 +5,14 @@ try {
   const output = resolve(process.argv[2] || 'db/exports/schema.sql');
   const schema = await readFile(new URL('./schema.sql', import.meta.url), 'utf8');
   const labSchema = await readFile(new URL('./lab-schema.sql', import.meta.url), 'utf8');
+  const traceSchema = await readFile(new URL('./openrouter-traces-schema.sql', import.meta.url), 'utf8');
   const sql = `-- Destructive export: executing this file replaces the questions table and its data.
 BEGIN;
 DROP TABLE IF EXISTS public.questions;
 
 ${schema}
 ${labSchema}
+${traceSchema}
 COMMIT;
 `;
   await mkdir(dirname(output), { recursive: true });

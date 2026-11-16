@@ -1,3 +1,4 @@
+import { createLabTrace } from '../lib/openrouter-tracing.mjs';
 import { localizationDuplicateTexts } from './question-localization.mjs';
 import { parseNumber } from '../i18n/config.mjs';
 import { screenLocalization } from '../features/lab/localization.mjs';
@@ -5,6 +6,10 @@ import 'server-only';
 import { validateCandidate } from '../../db/question-validation.mjs';
 import { generateCandidates } from '../../db/generate-questions.mjs';
 import { labChunkSize, maxAttempts } from '../features/lab/config.mjs';
+import { cooldownActive } from '../features/lab/diagnostics.mjs';
+
+const screeningReasons = { 'Wrong category': 'CATEGORY_MISMATCH', 'Wrong difficulty': 'DIFFICULTY_MISMATCH',
+  'Unstable or ambiguous': 'AMBIGUOUS_WORDING', 'Unsafe content': 'UNSAFE_CONTENT', 'Answer disclosed': 'ANSWER_DISCLOSED' };
 
 const failureMessages = {
   AI_NOT_CONFIGURED: 'AI generation is not configured. The game host needs to connect the AI provider.',
@@ -51,11 +56,17 @@ export function screenLabCandidate(input, existing, config) {
   return question;
 }
 
-export async function advanceGeneration(config, data, existing, generate = generateCandidates) {
+export async function advanceGeneration(config, data, existing, generate = generateCandidates, tracing = null) {
+  if (cooldownActive(data.errorDetails) || (data.errorDetails?.category === 'daily_quota' && !data.errorDetails.rateLimit?.resetAt && !data.errorDetails.rateLimit?.retryAt)) return structuredClone(data);
   const next = structuredClone(data);
   next.attempts += 1;
+  const requestedCount = Math.min(labChunkSize, config.count - next.questions.length);
+  const batchNumber = Math.floor(data.questions.length / labChunkSize) + 1;
+  const trace = createLabTrace({ packId: tracing?.packId,
+    batchNumber: Math.floor(data.questions.length / labChunkSize) + 1, attemptNumber: next.attempts, requestedCount,
+    locale: config.locale, unitSystem: config.unitSystem }, tracing?.options);
   try {
-    const batch = await generate({ count: Math.min(labChunkSize, config.count - next.questions.length),
+    const batch = await generate({ count: requestedCount, ...(trace && { trace }),
       preferences: { topic: config.topicMode === 'custom' ? config.topic : config.topicMode === 'surprise' ? 'surprise me' : '',
         categories: config.topicMode === 'categories' ? config.categories : [], difficulty: config.difficulty,
         locale: config.locale ?? 'en', unitSystem: config.unitSystem ?? 'original',
@@ -63,21 +74,42 @@ export async function advanceGeneration(config, data, existing, generate = gener
       // Only repeat already-generated pack text to the provider. The full bank
       // and other private packs stay local and are still screened below.
       existing: next.questions, timeoutMs: 20000, allowPartial: true });
+    const before = next.questions.length, rejectedBefore = next.rejected, reasons = {};
     for (const candidate of batch.candidates) {
       try {
         const accepted = screenLabCandidate(candidate, localizationDuplicateTexts([...existing, ...next.questions], config.locale), config);
         next.questions.push({ ...accepted, locale: config.locale ?? 'en', unitSystem: config.unitSystem ?? 'original', id: next.questions.length + 1, origin: 'ai', status: 'generated',
           verification: 'unverified', model: batch.model, generatedAt: new Date().toISOString() });
-      } catch { next.rejected += 1; }
+      } catch (error) {
+        next.rejected += 1;
+        const code = /^[A-Z][A-Z_]{1,63}$/.test(error?.code ?? '') ? error.code : screeningReasons[error?.message] ?? 'SCREENING_REJECTED';
+        reasons[code] = (reasons[code] ?? 0) + 1;
+      }
     }
+    trace?.validated({ received: batch.candidates.length, accepted: next.questions.length - before, rejected: next.rejected - rejectedBefore, reasons });
+    next.models = trace.publicModels();
+    next.lastBatch = { batchNumber, attemptNumber: next.attempts, received: batch.candidates.length,
+      accepted: next.questions.length - before, rejected: next.rejected - rejectedBefore };
+    next.errorDetails = next.rejected > rejectedBefore ? trace.publicDetails('QUESTIONS_REJECTED') : null;
+    if (next.errorDetails) next.errorDetails.validation = { received: next.lastBatch.received, accepted: next.lastBatch.accepted, rejected: next.lastBatch.rejected };
     next.lastError = null;
     next.lastErrorCode = null;
   } catch (error) {
+    await trace?.flush();
     const failure = generationFailure(error, Math.max(0, maxAttempts(config.count) - next.attempts));
     next.lastError = failure.message;
     next.lastErrorCode = failure.code;
+    next.errorDetails = trace.publicDetails(failure.code);
+    next.models = next.errorDetails.models;
+    next.lastBatch = { batchNumber, attemptNumber: next.attempts, received: null, accepted: 0, rejected: null };
+  } finally {
+    if (next.errorDetails) next.errorDetails.request = { ...next.errorDetails.request, batchNumber, attemptNumber: next.attempts };
+    // No reset timestamp means no justified automatic retry for this generation.
+    const dailyWithoutReset = next.errorDetails?.category === 'daily_quota' && !next.errorDetails.rateLimit?.resetAt && !next.errorDetails.rateLimit?.retryAt;
+    next.status = next.questions.length >= config.count ? 'ready'
+      : dailyWithoutReset || next.attempts >= maxAttempts(config.count) ? (next.questions.length ? 'partial' : 'failed') : 'generating';
+    trace?.applicationResult({ generationDecision: next.status, acceptedTotal: next.questions.length, lastErrorCode: next.lastErrorCode ?? null, packCommit: 'not_observed' });
+    await trace?.flush();
   }
-  next.status = next.questions.length >= config.count ? 'ready'
-    : next.attempts >= maxAttempts(config.count) ? (next.questions.length ? 'partial' : 'failed') : 'generating';
   return next;
 }

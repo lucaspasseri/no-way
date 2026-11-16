@@ -93,14 +93,17 @@ export default async function verifyQuestionLab(page, { baseURL = 'http://127.0.
     check(await page.getByRole('link', { name: 'Start playing', exact: true }).count() === 0, 'An empty failed batch must not be playable');
 
     const dimensions = [];
-    await page.getByRole('button', { name: 'Edit configuration', exact: true }).click();
+    await page.getByRole('button', { name: 'Return to AI Lab settings', exact: true }).click();
+    await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 960 });
       const actual = await page.evaluate(() => document.documentElement.scrollWidth);
       check(actual === width, `Lab overflows at ${width}px`); dimensions.push({ width, actual });
     }
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('nav summary').click();
     await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click();
+    await page.locator('nav summary').click();
     if (screenshotDirectory) await page.screenshot({ path: `${screenshotDirectory}/lab-dark.png`, fullPage: true });
     check(errors.length === 0, `Runtime errors: ${errors.join('; ')}`);
     return { generated: 10, screenedAttempts: 5, uniqueQuestionsPlayed: seen.length, partial: 2, providerRecovery: 'passed', roundPreservation: 'passed', publicAnswersHidden: 'passed', dimensions, errors };
@@ -134,7 +137,7 @@ export async function verifyInterruptedPack(page, { baseURL = 'http://127.0.0.1:
   await page.getByRole('button', { name: 'Resume generation', exact: true }).waitFor();
   const paused = (await (await page.request.get(`${baseURL}/api/question-lab?id=${id}`)).json()).pack;
   check(paused.attempts === 1, 'Returning must not automatically start another paid batch');
-  await page.getByRole('button', { name: 'Keep these ' + saved.accepted + ' questions', exact: true }).click();
+  await page.getByRole('button', { name: /^(Keep these \d+ questions|Review saved questions)$/ }).click();
   await page.getByRole('link', { name: 'Start playing', exact: true }).waitFor();
   const final = (await (await page.request.get(`${baseURL}/api/question-lab?id=${id}`)).json()).pack;
   check(final.status === 'partial' && final.attempts === 1 && final.accepted === saved.accepted, 'Keeping a partial pack must preserve accepted data without another provider call');
@@ -154,7 +157,7 @@ export async function verifyProviderTimeouts(page, { baseURL = 'http://127.0.0.1
     await resume.click();
     if (attempt < 6) await resume.waitFor();
   }
-  const reason = page.getByRole('alert').filter({ hasText: 'reached its attempt limit' });
+  const reason = page.getByText('This pack has reached its attempt limit. Generate a new pack or keep any accepted questions.', { exact: true });
   await reason.waitFor();
   check(!(await reason.textContent()).includes('attempts remaining'), 'Exhausted packs must not offer unavailable retries');
   check(await page.getByText('No usable question batch was returned.', { exact: false }).isVisible(), 'No candidate response is different from rejected questions');

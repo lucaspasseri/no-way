@@ -5,6 +5,7 @@ export async function labRequest(body, signal) {
   let payload;
   try { payload = await response.json(); }
   catch { throw new Error('The lab lost its connection. Resume to check your saved pack.'); }
-  if (!response.ok) throw new Error(payload.error || 'The lab could not complete this request. Try again.');
+  if (!response.ok) throw Object.assign(new Error(payload.error || 'The lab could not complete this request. Try again.'),
+    { details: payload.details, pack: payload.pack, status: response.status });
   return payload;
 }

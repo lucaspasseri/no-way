@@ -1,6 +1,7 @@
 import { it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { ownerHash, labCookie } from '../../../server/lab-http.mjs';
+import { publicDiagnostics } from '../../../features/lab/diagnostics.mjs';
 
 let execute;
 mock.module('../../../server/question-lab.mjs', { namedExports: { questionLab: Object.fromEntries(['get', 'create', 'advance', 'finish', 'challenge', 'report'].map(name => [name, (...args) => execute(name, ...args)])) } });
@@ -85,4 +86,35 @@ it('identifies production setup failures and logs only safe diagnostic fields', 
   const response = await GET(new Request(`http://localhost/api/question-lab?id=${id}`, { headers: { Cookie: `${labCookie}=${token}` } }));
   assert.equal((await response.json()).code, 'LAB_SETUP_REQUIRED');
   assert.equal(log.mock.calls.at(-1).arguments[1].action, 'get');
+});
+
+it('does not offer player actions for diagnostic inspection or caller-supplied trace context', async () => {
+  execute = async () => { assert.fail('Diagnostic access must never reach the public service'); };
+  for (const body of [{ action: 'traces', id }, { action: 'show-trace', id }, { action: 'advance', id, attempt: 0, trace: { packId: id } }]) {
+    assert.equal((await POST(request(body))).status, 400);
+  }
+});
+
+it('preserves provider status and the committed pack on failed generation, with an accurate retry header', async () => {
+  for (const [status, code] of [[429, 'AI_RATE_LIMIT'], [503, 'AI_UNAVAILABLE'], [402, 'AI_CREDITS']]) {
+    const details = publicDiagnostics({ http: { status }, rateLimit: status === 429 ? { kind: 'free_tier_daily', limit: 50, remaining: 0,
+      resetAt: new Date(Date.now() + 60000).toISOString() } : null }, code);
+    execute = async () => ({ id, accepted: 2, errorDetails: details, questions: [] });
+    const response = await POST(request({ action: 'advance', id, attempt: 1 }));
+    const payload = await response.json();
+    assert.equal(response.status, status); assert.equal(payload.pack.accepted, 2);
+    assert.equal(payload.details.category, details.category);
+    if (status === 429) assert.equal(response.headers.get('retry-after'), '60');
+    else assert.equal(response.headers.get('retry-after'), null);
+  }
+});
+
+it('returns a sanitized account cooldown when a new pack is blocked', async () => {
+  const details = publicDiagnostics({ http: { status: 429 }, rateLimit: { kind: 'free_tier_daily', resetAt: new Date(Date.now() + 120000).toISOString() } }, 'AI_RATE_LIMIT');
+  execute = async () => { throw Object.assign(new Error('private provider payload'), { code: 'AI_DAILY_COOLDOWN', details: { ...details, stack: 'private stack', authorization: 'secret' } }); };
+  const response = await POST(request({ action: 'create', id, config: { count: 10 } }));
+  assert.equal(response.status, 429); assert.equal(response.headers.get('retry-after'), '120');
+  const payload = await response.json();
+  assert.equal(payload.details.category, 'daily_quota');
+  assert.doesNotMatch(JSON.stringify(payload), /private|stack|authorization|secret/);
 });

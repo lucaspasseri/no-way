@@ -20,9 +20,12 @@
     "questions": "node --env-file-if-exists=.env scripts/questions.mjs",
     "test:selection:local": "node --import ./tests/register.mjs --test tests/question-selection.local.mjs",
     "test:db:local": "node --import ./tests/register.mjs --test tests/database.local.mjs",
-    "test:lab:local": "node --import ./tests/register.mjs --test tests/question-lab.local.mjs",
+    "test:lab:local": "node --import ./tests/register.mjs --test tests/question-lab.local.mjs tests/lab-diagnostics.local.mjs",
     "questions:export-sql": "node scripts/export-questions.mjs",
-    "questions:dataset": "node scripts/question-dataset.mjs"
+    "questions:dataset": "node scripts/question-dataset.mjs",
+    "db:traces": "node --env-file=.env db/schema.mjs --traces-only",
+    "openrouter:traces": "node --env-file-if-exists=.env scripts/openrouter-traces.mjs",
+    "test:traces:local": "node --experimental-test-module-mocks --import ./tests/register.mjs --test tests/openrouter-traces.local.mjs"
   },
   "dependencies": {
     "@openrouter/sdk": "^1.5.103",

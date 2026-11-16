@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "id": "1cdf2898-53df-4659-8fd0-378b26e66966",
+  "packId": "3849ab53-0133-48ec-84eb-c0208ea2066a",
+  "batchNumber": 2,
+  "attemptNumber": 2,
+  "httpAttemptNumber": 1,
+  "environment": "production",
+  "startedAt": "2026-11-15T21:50:28.713Z",
+  "completedAt": "2026-11-15T21:50:28.715Z",
+  "durationMs": 1,
+  "outcome": "failed",
+  "request": {
+    "method": "POST",
+    "endpoint": "/api/v1/responses",
+    "models": [
+      "particle-ai/particle-1:free",
+      "nvidia/nemotron-3.5-super-vl:free"
+    ],
+    "primaryModel": "particle-ai/particle-1:free",
+    "fallbackModels": [
+      "nvidia/nemotron-3.5-super-vl:free"
+    ],
+    "requestedCount": 2,
+    "timeoutMs": 20000,
+    "parameters": {
+      "maxOutputTokens": 1200,
+      "stream": false,
+      "store": false,
+      "reasoningEffort": "none",
+      "requireParameters": true,
+      "schemaSHA256": "7cd2d09c921e78d00ddbc88ffaadad72e4eb5a2a92825328675fa3004e2f5ad5",
+      "locale": "en",
+      "unitSystem": "original"
+    },
+    "metadataEnabled": true
+  },
+  "http": {
+    "status": 429,
+    "statusText": "Too Many Requests",
+    "headersAt": "2026-11-15T21:50:28.714Z",
+    "headersDurationMs": 0,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "60",
+      "x-openrouter-error-origin": "client",
+      "x-request-id": "req-example-rate-limit"
+    }
+  },
+  "response": {
+    "id": null,
+    "generationId": null,
+    "model": null,
+    "provider": null,
+    "usage": null,
+    "cost": null,
+    "completionStatus": null,
+    "finishReason": null,
+    "openrouterMetadata": null
+  },
+  "error": {
+    "category": "rate_limit",
+    "code": 429,
+    "message": "Rate limit exceeded",
+    "metadata": {
+      "limit_source": "openrouter_free_tier_per_minute",
+      "error_type": "rate_limit_exceeded",
+      "provider_name": null,
+      "headers": {
+        "x-ratelimit-limit": "20",
+        "x-ratelimit-remaining": "0",
+        "x-ratelimit-reset": "1794779488000"
+      }
+    },
+    "applicationCode": "AI_RATE_LIMIT",
+    "exceptionName": "TooManyRequestsResponseError",
+    "stage": "sdk"
+  },
+  "parsing": {
+    "httpJSON": "parsed",
+    "sdkResponse": "error_response",
+    "candidates": "pending"
+  },
+  "validation": {
+    "received": null,
+    "accepted": null,
+    "rejected": null,
+    "reasons": {}
+  },
+  "routing": {
+    "confirmedAttempts": [],
+    "successfulModel": null,
+    "information": "unknown",
+    "reportedAttemptNumber": null
+  },
+  "responseSnapshot": {
+    "error": {
+      "code": 429,
+      "message": "Rate limit exceeded",
+      "metadata": {
+        "limit_source": "openrouter_free_tier_per_minute",
+        "error_type": "rate_limit_exceeded",
+        "provider_name": null,
+        "headers": {
+          "x-ratelimit-limit": "20",
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": "1794779488000"
+        }
+      }
+    }
+  },
+  "rateLimit": {
+    "kind": "free_tier_per_minute",
+    "limitSource": "openrouter_free_tier_per_minute",
+    "origin": "client",
+    "headers": {
+      "x-ratelimit-limit": "20",
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": "1794779488000",
+      "content-type": "application/json",
+      "retry-after": "60",
+      "x-openrouter-error-origin": "client",
+      "x-request-id": "req-example-rate-limit"
+    },
+    "embeddedHeaders": {
+      "x-ratelimit-limit": "20",
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": "1794779488000"
+    },
+    "retryAt": "2026-11-15T21:51:28.714Z",
+    "resetAt": "2026-11-15T21:51:28.000Z"
+  },
+  "application": {
+    "generationDecision": "generating",
+    "acceptedTotal": 2,
+    "lastErrorCode": "AI_RATE_LIMIT",
+    "packCommit": "not_observed"
+  },
+  "lifecycleCompletedAt": "2026-11-15T21:50:28.716Z"
+}

@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "id": "0efa8571-50b7-4992-81fd-2d44cd43a294",
+  "packId": "3849ab53-0133-48ec-84eb-c0208ea2066a",
+  "batchNumber": 1,
+  "attemptNumber": 1,
+  "httpAttemptNumber": 1,
+  "environment": "production",
+  "startedAt": "2026-11-15T21:50:28.692Z",
+  "completedAt": "2026-11-15T21:50:28.701Z",
+  "durationMs": 6,
+  "outcome": "accepted",
+  "request": {
+    "method": "POST",
+    "endpoint": "/api/v1/responses",
+    "models": [
+      "particle-ai/particle-1:free",
+      "nvidia/nemotron-3.5-super-vl:free"
+    ],
+    "primaryModel": "particle-ai/particle-1:free",
+    "fallbackModels": [
+      "nvidia/nemotron-3.5-super-vl:free"
+    ],
+    "requestedCount": 2,
+    "timeoutMs": 20000,
+    "parameters": {
+      "maxOutputTokens": 1200,
+      "stream": false,
+      "store": false,
+      "reasoningEffort": "none",
+      "requireParameters": true,
+      "schemaSHA256": "7cd2d09c921e78d00ddbc88ffaadad72e4eb5a2a92825328675fa3004e2f5ad5",
+      "locale": "en",
+      "unitSystem": "original"
+    },
+    "metadataEnabled": true
+  },
+  "http": {
+    "status": 200,
+    "statusText": "",
+    "headersAt": "2026-11-15T21:50:28.696Z",
+    "headersDurationMs": 1,
+    "headers": {
+      "content-type": "application/json",
+      "x-request-id": "req-example-success"
+    }
+  },
+  "response": {
+    "id": "resp_example_success",
+    "generationId": null,
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "provider": "Example Provider",
+    "usage": {
+      "input_tokens": 640,
+      "output_tokens": 200,
+      "total_tokens": 840,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "cost": 0
+    },
+    "cost": 0,
+    "completionStatus": "completed",
+    "finishReason": null,
+    "openrouterMetadata": {
+      "requested": "particle-ai/particle-1:free",
+      "strategy": "fallback",
+      "attempt": 2,
+      "region": null,
+      "is_byok": false,
+      "summary": "Primary unavailable; backup completed",
+      "endpoints": {
+        "total": 2,
+        "available": [
+          {
+            "model": "particle-ai/particle-1:free",
+            "provider": "Example First Provider",
+            "selected": false
+          },
+          {
+            "model": "nvidia/nemotron-3.5-super-vl:free",
+            "provider": "Example Provider",
+            "selected": true
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "model": "particle-ai/particle-1:free",
+          "provider": "Example First Provider",
+          "status": 429
+        },
+        {
+          "model": "nvidia/nemotron-3.5-super-vl:free",
+          "provider": "Example Provider",
+          "status": 200
+        }
+      ]
+    }
+  },
+  "error": null,
+  "parsing": {
+    "httpJSON": "parsed",
+    "sdkResponse": "parsed",
+    "candidates": "parsed"
+  },
+  "validation": {
+    "received": 2,
+    "accepted": 2,
+    "rejected": 0,
+    "reasons": {}
+  },
+  "routing": {
+    "confirmedAttempts": [
+      {
+        "model": "particle-ai/particle-1:free",
+        "provider": "Example First Provider",
+        "status": 429
+      },
+      {
+        "model": "nvidia/nemotron-3.5-super-vl:free",
+        "provider": "Example Provider",
+        "status": 200
+      }
+    ],
+    "successfulModel": "nvidia/nemotron-3.5-super-vl:free",
+    "information": "reported_attempts",
+    "reportedAttemptNumber": 2
+  },
+  "responseSnapshot": {
+    "id": "resp_example_success",
+    "model": "nvidia/nemotron-3.5-super-vl:free",
+    "provider": "Example Provider",
+    "status": "completed",
+    "created_at": 1794779428,
+    "completed_at": 1794779428,
+    "usage": {
+      "input_tokens": 640,
+      "output_tokens": 200,
+      "total_tokens": 840,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "cost": 0
+    },
+    "error": null,
+    "incomplete_details": null,
+    "openrouter_metadata": {
+      "requested": "particle-ai/particle-1:free",
+      "strategy": "fallback",
+      "attempt": 2,
+      "region": null,
+      "is_byok": false,
+      "summary": "Primary unavailable; backup completed",
+      "endpoints": {
+        "total": 2,
+        "available": [
+          {
+            "model": "particle-ai/particle-1:free",
+            "provider": "Example First Provider",
+            "selected": false
+          },
+          {
+            "model": "nvidia/nemotron-3.5-super-vl:free",
+            "provider": "Example Provider",
+            "selected": true
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "model": "particle-ai/particle-1:free",
+          "provider": "Example First Provider",
+          "status": 429
+        },
+        {
+          "model": "nvidia/nemotron-3.5-super-vl:free",
+          "provider": "Example Provider",
+          "status": 200
+        }
+      ]
+    },
+    "output": [
+      {
+        "type": "message",
+        "status": "completed",
+        "content": [
+          {
+            "type": "output_text",
+            "textCharacters": 661
+          }
+        ]
+      }
+    ]
+  },
+  "rateLimit": {
+    "kind": "none",
+    "limitSource": null,
+    "origin": null,
+    "headers": {
+      "content-type": "application/json",
+      "x-request-id": "req-example-success"
+    },
+    "embeddedHeaders": {},
+    "retryAt": null,
+    "resetAt": null
+  },
+  "application": {
+    "generationDecision": "generating",
+    "acceptedTotal": 2,
+    "lastErrorCode": null,
+    "packCommit": "not_observed"
+  },
+  "lifecycleCompletedAt": "2026-11-15T21:50:28.710Z"
+}

@@ -1,6 +1,7 @@
 import { requestTranslator } from '../../../i18n/request.mjs';
 import { questionLab } from '../../../server/question-lab.mjs';
 import { requestIdentity, newIdentity, identityCookie, readLabBody, labError } from '../../../server/lab-http.mjs';
+import { cooldownUntil, diagnosticStatus } from '../../../features/lab/diagnostics.mjs';
 
 export const maxDuration = 30;
 const headers = { 'Cache-Control': 'no-store' };
@@ -43,9 +44,17 @@ export async function POST(request) {
       : action === 'advance' ? await questionLab.advance(id, identity.owner, body.attempt)
       : action === 'report' ? await questionLab.report(id, identity.owner, body.questionId)
       : await questionLab.finish(id, identity.owner);
-    return Response.json({ pack }, { headers: { ...headers, ...(action === 'create' && { 'Set-Cookie': identityCookie(identity.token) }) } });
+    const failedRequest = action === 'advance' && pack.errorDetails && pack.errorDetails.category !== 'validation_failure';
+    const retryAt = cooldownUntil(pack.errorDetails);
+    return Response.json({ pack, ...(failedRequest && { error: t(pack.errorDetails.message), details: pack.errorDetails }) }, {
+      status: failedRequest ? diagnosticStatus(pack.errorDetails) : 200,
+      headers: { ...headers, ...(action === 'create' && { 'Set-Cookie': identityCookie(identity.token) }),
+        ...(failedRequest && retryAt > Date.now() && { 'Retry-After': String(Math.ceil((retryAt - Date.now()) / 1000)) }) } });
   } catch (error) {
-    const { status, message, code } = labError(error, body.action);
-    return Response.json({ error: t(message), ...(code && { code }) }, { status, headers: { ...headers, ...(status === 429 && { 'Retry-After': '3600' }) } });
+    const { status, message, code, details } = labError(error, body.action);
+    const retryAt = cooldownUntil(details);
+    return Response.json({ error: t(message), ...(code && { code }), ...(details && { details }) }, { status, headers: { ...headers,
+      ...(status === 429 && !details && { 'Retry-After': '3600' }),
+      ...(retryAt > Date.now() && { 'Retry-After': String(Math.ceil((retryAt - Date.now()) / 1000)) }) } });
   }
 }

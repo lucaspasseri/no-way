@@ -95,8 +95,50 @@ matching `Question Lab request failed.` server log entry:
 
 Logs include only a validated action and allowlisted error codes. They never log
 connection strings, SQL, request bodies, owner cookies, or raw exception messages.
-OpenRouter failures are handled inside batch generation and normally appear as a
-pack's `lastErrorCode`; the outer API 503 is a separate server/setup failure.
+OpenRouter failures are committed with the pack and exposed through sanitized
+`errorDetails` and the legacy `lastErrorCode`. A failed `advance` preserves the
+provider's failure status (for example 429, 402, or 503) and returns both `pack`
+and `details`. Local network/response failures use 502; timeouts use 504 when no
+failure HTTP status is available. Clients must retain `pack` on non-2xx responses.
+The outer setup diagnostics above remain separate from provider failures.
+
+### Player-facing diagnostics
+
+The Lab report derives categories, model routing, validation counts, request
+duration, and retry information from the existing request-scoped trace collector.
+Only allowlisted fields enter a public pack. Raw payloads, headers, prompts,
+provider error text, SQL, credentials, and stacks never enter the report or its
+copyable support summary. A reference UUID correlates with operator-only traces.
+No new trace store or public trace endpoint is introduced.
+
+Configured fallbacks are displayed in priority order and are never called
+attempts without explicit routing evidence. A completed response confirms only
+its answering model. Zero reported attempts plus every available endpoint marked
+`selected=false` confirms rejection before selection. Without that evidence,
+routing remains unknown. Successful pack results also show the answering model.
+
+Known account-wide free-model daily exhaustion pauses generation immediately.
+Its sanitized restriction is saved atomically in the existing pack JSON and
+checked across players and server instances before creating or advancing packs.
+No additional attempt is consumed during an active recorded cooldown. Expired
+packs remain private but are retained during their recorded restriction so that
+cleanup cannot erase the guard. Operators should apply the same condition when
+performing manual pack cleanup. Optional trace-write failures do not defeat this
+guard. Requests already in flight in another generation lane may still finish.
+
+The guard uses the later supplied daily reset/retry timestamp. Temporary limits
+respect their supplied retry time for the affected pack. Missing times remain
+unknown; a daily restriction without a time ends the current generation without
+spending its remaining attempts. There is no retry scheduler or assumed daily
+quota value. After a recorded cooldown expires, a manual retry checks actual
+availability; renewal is not guaranteed. Accepted questions always remain saved.
+
+The bilingual report uses the browser's timezone and localized dates, with quiet
+relative-time updates and no polling requests. It includes saved-pack totals
+separately from the latest failed batch, accessible disclosures and actions, both
+themes, and reduced-motion support. Generation shows the current logical batch
+and bounded attempt; server-side screening/saving are described as the next steps
+because the current synchronous API does not stream those phases.
 
 ## Server flow
 
@@ -163,7 +205,8 @@ queue. Input/output screening is deliberately conservative and cannot detect all
 inappropriate, irrelevant, answer-giving, or inaccurate model content.
 
 Every public preview/step/page projection uses the existing `publicQuestion`
-allowlist. Answers, explanations, suggested links, and model metadata are absent.
+allowlist. Answers, explanations, suggested links, and private provenance are absent
+from each question; safe model-routing information is exposed at the pack level.
 Only a successful server-side challenge reveals answer/evidence for that question;
 failed/equal challenges reveal no answer. Result wording says “Generated answer,”
 and AI-suggested links are marked unchecked. Experimental play creates no ranking
@@ -250,3 +293,19 @@ availability and free-tier rate limits still apply.
 rate-limit, and schema failures. Zero accepted and zero rejected means there were
 no candidates to screen. The UI preserves the reason after revisiting a saved
 pack, and a closed pack offers regeneration rather than claiming retries remain.
+
+## Persistent request diagnostics
+
+AI Lab HTTP requests can be inspected after server restarts with the operator-only
+`npm run openrouter:traces` CLI. Install the additive trace table before deployment
+and schedule retention cleanup. See [OpenRouter tracing](openrouter-tracing.md) for
+setup, filters, sanitized examples, routing-evidence limits, and privacy details.
+This tracing does not change generation, fallback configuration, or retry budgets.
+
+`npm run test:lab:local` also verifies cooldown enforcement across isolated service
+instances, retention, expiry, partial preservation, and trace-write failure.
+`tests/lab-errors.browser.mjs` exports a Playwright helper covering daily,
+temporary, unknown, provider, credit, parsing, and screening reports, copied
+diagnostics, and cooldown expiry without automatic requests. Use a fresh browser
+context with `timezoneId: 'America/Sao_Paulo'`; the helper accepts the same preview
+URL and screenshot directory options as the existing browser helper.

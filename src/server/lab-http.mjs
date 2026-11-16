@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { packIdSchema } from '../features/lab/config.mjs';
+import { sanitizePublicDetails } from '../features/lab/diagnostics.mjs';
 
 export const labCookie = 'no-way-lab';
 export function ownerHash(token) {
@@ -80,6 +81,10 @@ const diagnosticMessages = {
 };
 
 export function labError(error, action = 'unknown') {
+  if (error?.code === 'AI_DAILY_COOLDOWN' && sanitizePublicDetails(error.details)) {
+    const details = sanitizePublicDetails(error.details);
+    return { status: 429, code: error.code, message: details.message, details };
+  }
   const status = { INVALID_CONFIG: 400, INVALID_CHALLENGE: 400, PACK_UNAVAILABLE: 404, LAB_RATE_LIMIT: 429, LAB_BUSY: 409 }[error?.code] ?? 503;
   if (status !== 503) return { status, message: error.message };
   const known = Object.hasOwn(databaseDiagnostics, error?.code);

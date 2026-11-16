@@ -4,11 +4,13 @@ import { useI18n } from "@/i18n/LocalizationProvider";
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Check, Layers, RefreshCw, Shuffle, Sliders, Star, Zap } from 'react-feather';
-import { defaultLabConfig, labConfigSchema, topicLabel } from '@/features/lab/config.mjs';
+import { defaultLabConfig, labConfigSchema, labChunkSize, topicLabel } from '@/features/lab/config.mjs';
 import { labRequest } from '@/features/lab/client.mjs';
+import { cooldownActive, cooldownUntil } from '@/features/lab/diagnostics.mjs';
 import { useGameSessions } from '@/features/game/GameSessions';
 import GameSettings from '../GameSettings';
 import styles from './QuestionLab.module.css';
+import LabErrorResult, { ModelRouting } from './LabErrorResult';
 const levels = {
   any: 'Any audience',
   kindergarten: 'Kindergarten',
@@ -54,6 +56,9 @@ export default function QuestionLab({
   const [pack, setPack] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [requestDetails, setRequestDetails] = useState(null);
+  const [dismissed, setDismissed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [activity, setActivity] = useState('Preparing your private pack');
   const [restoring, setRestoring] = useState(true);
   const controller = useRef(null);
@@ -61,6 +66,16 @@ export default function QuestionLab({
   const running = useRef(false);
   const titleRef = useRef(null);
   const returnHref = sessions?.get('lastGame') ?? '/';
+  const details = requestDetails ?? pack?.errorDetails;
+  const blocked = cooldownActive(details, now);
+  const retryAt = cooldownUntil(details);
+  useEffect(() => {
+    if (!retryAt) return;
+    const refresh = () => setNow(Date.now());
+    const tick = setInterval(refresh, 30000);
+    const expiry = setTimeout(refresh, Math.min(2147483647, Math.max(0, retryAt - Date.now() + 50)));
+    return () => { clearInterval(tick); clearTimeout(expiry); };
+  }, [retryAt]);
   useEffect(() => {
     const abort = new AbortController();
     restoreController.current = abort;
@@ -108,7 +123,7 @@ export default function QuestionLab({
     } catch {/* In-memory play still works. */}
   }
   async function generate(resume = false) {
-    if (running.current) return;
+    if (running.current || cooldownActive(details)) return;
     restoreController.current?.abort();
     setRestoring(false);
     const parsed = labConfigSchema.safeParse({ ...config, locale, unitSystem });
@@ -119,8 +134,11 @@ export default function QuestionLab({
     running.current = true;
     setBusy(true);
     setError('');
+    setRequestDetails(null);
+    setDismissed(false);
     const abort = new AbortController();
     controller.current = abort;
+    let created = false;
     try {
       setActivity('Preparing your private pack');
       let next = pack;
@@ -137,6 +155,7 @@ export default function QuestionLab({
           config: parsed.data
         }, abort.signal)).pack;
         remember(next);
+        created = true;
       } else {
         const response = await fetch('/api/question-lab?id=' + encodeURIComponent(pack.id), {
           signal: abort.signal,
@@ -162,6 +181,9 @@ export default function QuestionLab({
       }
       if (!abort.signal.aborted) titleRef.current?.focus();
     } catch (failure) {
+      if (!resume && !created && pack && failure.status) remember(pack);
+      if (failure.pack) remember(failure.pack);
+      if (failure.details) setRequestDetails(failure.details);
       if (!abort.signal.aborted) setError(failure.name === 'TimeoutError' ? t("This batch is taking longer than expected. Your pack is saved; resume to check it.") : failure.message || t("Generation was interrupted. Try again."));
     } finally {
       if (!abort.signal.aborted) setBusy(false);
@@ -173,6 +195,7 @@ export default function QuestionLab({
     running.current = true;
     setBusy(true);
     setError('');
+    setDismissed(true);
     try {
       remember((await labRequest({
         action: 'finish',
@@ -190,6 +213,9 @@ export default function QuestionLab({
     setRestoring(false);
     setPack(null);
     setError('');
+    // Retain a known account cooldown while the player edits configuration.
+    setRequestDetails(details?.rateLimit?.accountWide ? details : null);
+    setDismissed(false);
     try {
       sessionStorage.removeItem('no-way:lab-pack');
     } catch {/* Optional recovery. */}
@@ -210,17 +236,22 @@ export default function QuestionLab({
     {pack && <p role='status'>{t('This pack keeps its original language and measurements. New preferences apply to new packs.')} · {pack.config.locale ?? 'en'} · {t(pack.config.unitSystem === 'metric' ? 'Metric' : 'Original units')}</p>}
     <div className={styles.notice}><span aria-hidden='true'>✳</span><p><strong>{t("Curiosity welcome. A little skepticism, too.")}</strong> {t("AI can get facts wrong. Packs are generated and structurally screened, but their answers are not independently verified. Just for casual play.")}</p></div>
     {unavailable && <p role='alert' className={styles.error}>{t("The question database is unavailable. Please try again later.")}</p>}
+    {details && !busy && !dismissed && <LabErrorResult details={details} pack={pack} now={now}
+      onRetry={() => generate(pack?.status === 'generating')} onSettings={edit}
+      onKeep={keepPartial} onDismiss={() => setDismissed(true)} />}
 
-    {generating ? <section className={styles.generating} aria-busy={busy}>
-      <PackArt active topic={t(topicLabel(pack?.config ?? config, locale))} count={config.count} accepted={pack?.accepted ?? 0} />
+    {details && !busy && !dismissed && pack?.status === 'generating' ? null : generating ? <section className={`${styles.generating} ${details && !busy ? styles.paused : ''}`} aria-busy={busy}>
+      {(!details || busy) && <PackArt active={busy} topic={t(topicLabel(pack?.config ?? config, locale))} count={config.count} accepted={pack?.accepted ?? 0} />}
       <div className={styles.generationCopy}><span className={styles.eyebrow}>{t("EXPERIMENT IN PROGRESS")}</span>
         <h2 tabIndex={-1} ref={titleRef}>{busy ? t("A good question takes a little curiosity.") : t("Your experiment is saved.")}</h2>
         <p>{busy ? t("Connecting the dots, finding the numbers, and keeping the interesting bits.") : t("Resume your saved pack, or play with the questions already accepted.")}</p>
         <div className={styles.counter} role='status' aria-live='polite'><strong key={pack?.accepted} className='number-pulse'>{pack?.accepted ?? 0}<span> / {pack?.config.count ?? config.count}</span></strong><span>{t("questions passed structural screening")}</span></div>
         <div className={styles.stage}><span className={busy ? styles.liveDot : styles.dot} /><span>{busy ? t(activity) : t("Paused · no requests running in this tab")}</span></div>
+        {busy && pack && <p className={styles.fine} role='status'>{t('Requesting batch {batch} of {total} · attempt {attempt} of {maximum}', {
+          batch: Math.floor(pack.accepted / labChunkSize) + 1, total: Math.ceil(pack.config.count / labChunkSize), attempt: pack.attempts + 1, maximum: pack.maxAttempts })}<br />{t('Waiting for the AI response. The server will then screen and save this batch.')}</p>}
         <p className={styles.fine}>{t("We check wording, units, format, and duplicates after each small batch. Factual accuracy is still unverified.")} {pack?.rejected > 0 && t('{count} candidates screened out.', { count: pack.rejected })}</p>
-        {generationError && <p className={styles.error} role='alert'>{t(generationError)}</p>}
-        {!busy && <div className={styles.buttons}><button className='button' onClick={() => generate(true)}>{t("Resume generation")}<ArrowRight size={16} /></button>{pack?.accepted > 0 && <button className='button button-secondary' onClick={keepPartial}>{t("Keep these")} {pack.accepted} {t("questions")}</button>}<button className={styles.textButton} onClick={edit}>{t("Edit configuration")}</button></div>}
+        {generationError && !details && <p className={styles.error} role='alert'>{t(generationError)}</p>}
+        {!busy && <div className={styles.buttons}>{(!details || dismissed) && <button className='button' disabled={blocked || details?.retryable === false} onClick={() => generate(true)}>{t("Resume generation")}<ArrowRight size={16} /></button>}{pack?.accepted > 0 && <button className='button button-secondary' onClick={keepPartial}>{t("Keep these")} {pack.accepted} {t("questions")}</button>}<button className={styles.textButton} onClick={edit}>{t("Edit configuration")}</button></div>}
         {busy && <p className={styles.fine}>{t("You can return to your game. This batch will finish and be saved; further batches wait for you to resume.")}</p>}
       </div>
     </section> : completed ? <section className={styles.results}>
@@ -231,8 +262,9 @@ export default function QuestionLab({
       {pack.accepted < pack.config.count && <p className={styles.partial} role='status'>{pack.accepted === 0 && pack.rejected === 0 ? t("No usable question batch was returned. No questions reached screening, and there is no playable pack yet.") : <>{t("Only")} {pack.accepted} {t("of")} {pack.config.count} {t("questions passed screening.")} {pack.rejected} {t("candidates were rejected. We haven’t filled the gaps with substitutes.")}</>}</p>}
       <div className={styles.previewCards}>{pack.questions.slice(0, 3).map((question, index) => <article key={question.id} className={styles.previewCard}><span>{t("QUESTION")} {String(index + 1).padStart(2, '0')}<Star size={14} /></span><h3>{question.question}</h3><p>{metadataLabel(question.category)}<span>{t("Answer sealed")}</span></p></article>)}</div>
       <p className={styles.fine}>{t("Generated by AI · Not validated or curated · Answers stay sealed until a successful challenge. Private to this browser, available for 24 hours. Your regular game is saved while you explore.")}</p>
-      {generationError && <p className={styles.error} role='alert'>{t(generationError)}</p>}
-      <div className={styles.buttons}>{pack.accepted > 0 && <Link className='button' href={`/question-lab/play/${pack.id}`}>{t("Start playing")}<ArrowRight size={17} /></Link>}<button className='button button-secondary' onClick={() => generate()}><RefreshCw size={16} />{t("Regenerate pack")}</button><button className={styles.textButton} onClick={edit}>{t("Edit configuration")}</button></div>
+      {!details && pack.models && <ModelRouting models={pack.models} />}
+      {generationError && !details && <p className={styles.error} role='alert'>{t(generationError)}</p>}
+      <div className={styles.buttons}>{pack.accepted > 0 && <Link className='button' href={`/question-lab/play/${pack.id}`}>{t("Start playing")}<ArrowRight size={17} /></Link>}{(!details || dismissed) && <button className='button button-secondary' disabled={blocked} onClick={() => generate()}><RefreshCw size={16} />{t("Regenerate pack")}</button>}<button className={styles.textButton} onClick={edit}>{t("Edit configuration")}</button></div>
     </section> : <div className={styles.workspace}>
       <form className={styles.form} onSubmit={event => {
         event.preventDefault();
@@ -264,8 +296,8 @@ export default function QuestionLab({
               challenge: event.target.value
             })} required /><p className={styles.hint}>{t("2–160 characters. This guides the AI; it isn’t a factual guarantee.")}</p></div>}
         </fieldset>
-        {error && <p className={styles.error} role='alert'>{t(error)}</p>}
-        <div className={styles.formFooter}><button className='button' disabled={!valid || unavailable || restoring}><Zap size={17} />{restoring ? t("Checking for a saved experiment…") : t('Generate {count} questions', { count: config.count })}<ArrowRight size={17} /></button><p>{t("Real AI generation. Usually a few small batches.")}<br />{t("Up to 3 packs per browser per hour.")}</p></div>
+        {error && !details && <p className={styles.error} role='alert'>{t(error)}</p>}
+        <div className={styles.formFooter}><button className='button' disabled={!valid || unavailable || restoring || blocked}><Zap size={17} />{restoring ? t("Checking for a saved experiment…") : t('Generate {count} questions', { count: config.count })}<ArrowRight size={17} /></button><p>{t("Real AI generation. Usually a few small batches.")}<br />{t("Up to 3 packs per browser per hour.")}</p></div>
       </form>
       <aside className={styles.recipe}><div className={styles.recipeTop}><span>{t("THE RECIPE")}</span><span>✳</span></div><PackArt topic={t(topicLabel(config, locale))} count={config.count} /><div className={styles.recipeDetails}><h3>{t("A pack with your name on it.")}</h3><p>{t('{count} numerical questions · {difficulty} difficulty · {level}', { count: config.count, difficulty: metadataLabel(config.difficulty), level: t(levels[config.knowledge]) })}</p><ul><li><Check size={14} />{t("Made for the way you play")}</li><li><Check size={14} />{t("Answers hidden until the reveal")}</li><li><Check size={14} />{t("Your regular game stays saved")}</li></ul></div><div className={styles.recipeNote}>{t("A small experiment in big curiosity.")}<br />{t("What will you discover?")}</div></aside>
     </div>}
