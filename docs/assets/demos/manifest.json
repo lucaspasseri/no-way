@@ -1,0 +1,41 @@
+{
+  "viewport": {
+    "width": 1120,
+    "height": 1000
+  },
+  "fps": 10,
+  "source": "isolated local app",
+  "aiProvider": "deterministic test fixtures; no live model requests",
+  "clips": [
+    {
+      "file": "core-gameplay.gif",
+      "preview": "core-gameplay.png",
+      "seconds": 9.2,
+      "width": 840,
+      "height": 750,
+      "frames": 92,
+      "bytes": 1516103,
+      "simulatedAI": false
+    },
+    {
+      "file": "ai-lab.gif",
+      "preview": "ai-lab.png",
+      "seconds": 12.5,
+      "width": 840,
+      "height": 750,
+      "frames": 125,
+      "bytes": 2366170,
+      "simulatedAI": true
+    },
+    {
+      "file": "customization.gif",
+      "preview": "customization.png",
+      "seconds": 8.4,
+      "width": 840,
+      "height": 750,
+      "frames": 84,
+      "bytes": 1464854,
+      "simulatedAI": false
+    }
+  ]
+}

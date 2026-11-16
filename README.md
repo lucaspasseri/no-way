@@ -1,206 +1,162 @@
-# No Way — Party Trivia
+# No Way!
 
-A number-guessing game built with Next.js App Router, React, JavaScript,
-and CSS Modules. Browse the question bank, lock a question, submit increasing
-guesses, and challenge the latest guess to check whether it is too high.
+**How high can a guess go before you say “no way”?**
 
-## Development
+A shared-screen numerical trivia game: take turns raising the guess, challenge it
+when it sounds too high, and discover the answer together.
+
+**[Play Live →](https://no-way.paxeri.dev)** · [Source code](https://github.com/lucaspasseri/no-way)
+
+[![No Way! result screen showing a successful challenge, the last guess and the correct answer.](docs/assets/demos/core-gameplay.png)](https://no-way.paxeri.dev)
+
+## What is No Way!?
+
+How far away is the Moon? How many keys are on a piano? You don't need to know the
+exact answer—just decide whether the next guess is still believable.
+
+1. **Pick a question and lock it.** The answer stays hidden.
+2. **Make a guess, then raise it.** Every new guess must be higher than the last.
+3. **Doubt the latest guess.** If it exceeds the answer, the challenge succeeds
+   and reveals the result. An equal or lower guess stays valid, so play continues.
+4. **Discover the answer and play another round.** See the numerical comparison
+   and available explanation or reference.
+
+Play together around one screen, or explore the questions on your own. The app
+doesn't manage online rooms, player accounts or scores.
+
+## See it in action
+
+### Make a guess. Raise the stakes. Doubt it.
+
+![Core gameplay: lock a question, submit guesses of 100 and 200, challenge the latest guess, reveal the answer of 149.6, and start another round.](docs/assets/demos/core-gameplay.gif)
+
+### Follow your curiosity in AI Lab
+
+Choose a topic, difficulty and audience, then play a custom question pack.
+
+**Simulated AI generation demo:** this recording uses deterministic local fixtures
+in place of an AI provider. It shows the real configuration, screening, pack
+summary and gameplay UI; these responses did **not** come from a live model.
+
+![Simulated AI demo: explore categories, choose a custom topic and difficulty, generate a ten-question fixture pack, then lock and guess on a generated question.](docs/assets/demos/ai-lab.gif)
+
+AI Lab is experimental. Generated answers are unverified, and live generation
+depends on provider availability and quota. If generation stops early, accepted
+questions can still be played. Returning to the Lab preserves the saved summary;
+generating another batch always requires an explicit action.
+
+### Make it yours
+
+Switch between English and Brazilian Portuguese, select original or metric units,
+and choose light or dark mode. Filter classic questions by category and difficulty.
+
+![Customization: switch to Brazilian Portuguese, change measurements, enable dark mode, filter questions, and switch back to English.](docs/assets/demos/customization.gif)
+
+<details>
+<summary>Prefer still images? View the Lab, settings and mobile interface.</summary>
+
+[AI Lab gameplay — simulated generation](docs/assets/demos/ai-lab.png) ·
+[Customized desktop interface](docs/assets/demos/customization.png)
+
+<img src="docs/assets/demos/customization-mobile.png" width="390" alt="Mobile No Way! interface in Brazilian Portuguese and dark mode, with a question, filters and guessing controls." />
+
+</details>
+
+## Key features
+
+- **Numerical trivia with a twist:** keep raising the guess until someone doubts it.
+- **A curated question collection:** the versioned dataset contains 200 questions,
+  with explanations and references where available.
+- **Your choice of questions:** browse sequentially, pick randomly, or filter by
+  category and difficulty.
+- **Experimental custom packs:** request 10, 15 or 20 questions using categories,
+  a custom topic, difficulty and audience preferences.
+- **English and Brazilian Portuguese:** localized questions, number entry and
+  supported measurement conversions.
+- **A flexible interface:** responsive layouts, light and dark themes, keyboard
+  controls and reduced-motion support.
+
+## Behind the project
+
+The interesting engineering work sits behind a simple guessing loop:
+
+- **Keep answers sealed.** Question selection exposes public fields; challenges
+  are checked on the server. Pure game rules reject stale results and preserve
+  the current round when requests fail.
+- **Treat AI output as input to validate.** Structured schemas and duplicate
+  screening sit between generation and play. Bounded recovery, shared cooldowns
+  and saved partial packs handle provider failures without silently treating
+  generated content as curated fact.
+- **Keep content and presentation consistent.** PostgreSQL manages question
+  lifecycle and temporary packs. Localization preserves question identity and
+  guesses; approved unit conversions use the same rounded answer for display
+  and challenge resolution.
+- **Verify real flows.** Node's test runner covers rules, APIs and data workflows.
+  Playwright exercises gameplay, settings, localization and mocked AI flows.
+  These README recordings run against a separate temporary app and database.
+
+## Tech stack
+
+| Technology | Role |
+| --- | --- |
+| Next.js App Router + React | Server-rendered pages, API routes and interactive gameplay |
+| JavaScript + CSS Modules | Game logic, components, responsive styles and shared design tokens |
+| PostgreSQL + `pg` | Curated questions, temporary packs and shared provider cooldowns |
+| OpenRouter SDK + Zod | Server-side AI integration and structured input/output validation |
+| Node test runner + Playwright | Automated checks, browser journeys and repeatable demos |
+| FFmpeg | Optimized GIFs from Playwright video recordings |
+
+## Running locally
+
+**Prerequisites:** Node.js 22.15+, npm and a local PostgreSQL database.
+No AI key is needed for classic gameplay.
 
 ```sh
 npm install
+cp .env.example .env
+# Set DATABASE_URL in .env to your local development database.
 npm run db:schema
 npm run db:seed
 npm run dev
 ```
 
-Open [localhost:3000](http://localhost:3000). The question card contains
-Lock/Unlock, Next Question, and Random Question. Enter a new guess below it or
-use Doubt Guess directly below the latest guess. Open Settings in the header
-to switch themes or reset guesses immediately. Numerical answers stay hidden
-during play. A challenge ends the round and reveals the answer, comparison,
-and available reference information on a dedicated Result screen. Choose
-Play another round to advance to the next question, then lock it to begin.
-
-The root `.env` supplies `DATABASE_URL`. Copy `.env.example` to `.env` and set a
-local development URL. Fresh databases use `db:schema` and `db:seed`; existing
-production databases require the separate reviewed [lifecycle schema upgrade](db/upgrade-question-lifecycle.sql)
-and [manual compatibility steps](docs/question-service.md#existing-production-schema-manual-compatibility-steps).
-Nothing initializes or seeds the database during application startup.
-
-The manifest now contains **200 curated questions**, with curated IDs **1–200**.
-Questions move through `generated → validated → curated`; regular gameplay uses
-only curated questions. The Question Lab separately enables experimental packs.
-Automated validation does not establish factual accuracy. Database
-primary keys are independent from curated IDs and are preserved across imports.
-See the [dataset audit](docs/question-curation-report.md) and
-[workflow documentation](docs/question-service.md) for source reviews and commands.
-
-Generate production data SQL offline, then review it before manually executing it:
+Open [localhost:3000](http://localhost:3000). To use live AI generation, configure
+your own server-only `OPENROUTER_API_KEY` in the ignored `.env`; never commit it.
 
 ```sh
-npm run --silent questions:export-sql > curated-questions.sql
-npm run --silent questions:export-sql -- --status curated > curated-questions.sql
-npm run --silent questions:export-sql -- --status validated > validated-questions.sql
-npm run --silent questions:export-sql -- --status generated > generated-questions.sql
-npm run --silent questions:export-sql -- --status all > all-questions.sql
-npm run questions:dataset -- check
-```
-
-`--silent` suppresses npm's banner so redirected output is valid SQL. The exporter
-needs no database connection or credentials and never executes statements. Imports
-are transactional and repeatable; unsafe content/status/identity conflicts raise
-errors. Existing legacy approved seed rows need the explicitly reviewed
-`--promote-validated` option after the separate schema upgrade. See the compatibility
-steps before selecting it.
-
-`npm run db:export:seed` also writes curated SQL to `db/exports/seed.sql`.
-`npm run db:export:schema` remains a destructive fresh-database export; **do not
-use it to upgrade production**. Its generated SQL drops the questions table.
-
-## AI Question Lab (experimental)
-
-Open **Settings → AI Question Lab** to generate a private 10-, 15-, or 20-question
-pack using existing categories, your own topic, and standard or custom knowledge
-levels. Packs use the existing gameplay and keep numerical answers hidden until
-a successful challenge. They remain **generated, unverified, and for casual
-play**; no AI generation automatically validates or curates a question.
-
-Install the additive pack table in an existing database with `npm run db:lab`.
-Fresh `db:schema` installations already include it. The existing server-only
-OpenRouter credentials/model are reused. See [architecture, limits, recovery,
-and tests](docs/question-lab.md) for details.
-
-AI Lab recovery uses one bounded retry/fallback budget and shared PostgreSQL
-cooldowns. Existing installations need `npm run db:recovery` before deployment.
-See [recovery policy, defaults, operator history, and simulations](docs/ai-lab-recovery.md).
-
-Existing installations also need `npm run db:recovery` for shared cooldowns and
-recovery trace events. See [AI Lab recovery](docs/ai-lab-recovery.md) for bounded
-retry/fallback policy, configuration defaults, operator history, and simulations.
-
-## Checks
-
-```sh
-npm run lint
 npm test
-npm run test:db:local    # isolated temporary PostgreSQL cluster; requires local binaries
-npm run test:db          # optional read-only checks against the database in .env
-npm run test:integration # with the development server running
-npm run build
+npm run lint
 ```
 
-The offline unit tests use Node's built-in test runner and need no additional
-test dependency. Test hooks require Node 22.15 or newer. Fredoka and Plus Jakarta Sans use `next/font/google`, which
-requires Google Fonts to be reachable during a clean build.
+Database upgrades, content curation, provider configuration, integration tests and
+build instructions live in the [development and operations guide](docs/development.md).
 
-## OpenRouter test request
+### Recreate the demos
 
-Create an API key at [OpenRouter Keys](https://openrouter.ai/keys) and add
-`OPENROUTER_API_KEY=your-key` to the ignored root `.env`, or configure the variable
-in your server environment. Never prefix the key with `NEXT_PUBLIC_` or commit it.
-The example environment file contains no actual key.
+Install FFmpeg (including `ffprobe`) and local PostgreSQL binaries, then:
 
 ```sh
-npm run openrouter:test
+npx playwright install chromium
+npm run demos:record
 ```
 
-This makes one text request through the official `@openrouter/sdk` and prints the
-model and reply. The default prompt asks for `OK`; the default model slug is
-[`particle-ai/particle-1:free`](https://openrouter.ai/particle-ai/particle-1:free).
-Free providers have availability and rate limits. Browse current slugs at
-[OpenRouter Models](https://openrouter.ai/models). To choose a model and prompt:
+This explicit command records three browser videos and converts them into GIFs;
+it is separate from ordinary tests. It uses a temporary database, a source copy
+and the existing AI fixtures. It does not load `.env` or make live AI requests.
+See the [recording guide](docs/demos.md) for prerequisites, isolation and asset checks.
 
-```sh
-npm run openrouter:test -- particle-ai/particle-1:free "Say hello in one sentence."
-```
+## Project status and links
 
-`OPENROUTER_MODEL` selects the primary model. The app sends an ordered fallback
-list through OpenRouter's native `models` routing, starting with Particle-1,
-then `nvidia/nemotron-3.5-super-vl:free`. Both defaults are free models supporting
-the structured-output request and disabled reasoning.
+**Live portfolio project; AI Lab remains experimental.** Classic gameplay and
+configuration have automated coverage. This is a shared-screen experience, with
+no online multiplayer or persistent player accounts. Generated packs are private
+to the browser that created them, expire after 24 hours and remain unverified.
 
-Set `OPENROUTER_FALLBACK_MODELS` to a comma-separated list of at most two backups
-to replace the default backup. An empty value disables fallbacks. Duplicate IDs are
-removed while preserving order. Explicit CLI model arguments (including
-`questions --model`) pin that request to the specified model for diagnostics.
-Paid model IDs in an operator-configured list can incur charges; default lists
-contain only free models.
-
-Fallback is handled inside one OpenRouter request, sharing the original timeout
-and output budget. The SDK does not make extra client-side retry requests.
-Gateway errors can trigger failover; a local deadline aborting the entire request
-or an invalid question batch returned with success does not start another model
-request. Use valid catalog IDs: nonexistent IDs and incompatible request settings
-can be rejected before fallback routing starts. The response's actual model is kept in question provenance. See
-[OpenRouter model fallback behavior](https://openrouter.ai/docs/guides/routing/model-fallbacks).
-
-Node loads `.env` if present, and existing shell environment variables
-take precedence. The command runs only in Node, sends no game or database data,
-and exposes no public web endpoint. It uses a 30-second request timeout, a
-128-token output limit, and no automatic retries. Missing keys, authentication,
-credits, permissions, unavailable models, rate limits, timeouts, and empty or
-incomplete replies produce an actionable message and a nonzero exit code. Raw
-SDK errors and authorization headers are never logged. Unit tests mock the SDK
-or intercept its HTTP transport and do not make billable requests. Implementation follows the
-[OpenRouter quickstart](https://openrouter.ai/docs/quickstart).
-
-## Candidate validation and factual review
-
-Use the existing database operator CLI to generate or import candidates, validate
-then curate them with actual independent evidence:
-
-```sh
-npm run questions -- generate --count 3
-npm run questions -- import --file candidates.json
-npm run questions -- list --status generated
-npm run questions -- validate 123
-npm run questions -- curate 123 --reviewer 'editor' --verified-answer 6 \
-  --source 'https://your-checked-reference.example/polygons' \
-  --notes 'Replace with actual factual, wording, difficulty and duplicate review notes.' \
-  --independently-verified
-npm run questions -- demote 123 --status generated \
-  --notes 'The source changed; a new factual review is required before gameplay.'
-```
-
-IDs and evidence above are illustrative. Operator commands use database IDs.
-For a database-free manifest workflow, use `questions:dataset` with `import`,
-`validate`, `curate`, `demote`, `list` and `check`; see the
-[exact commands and candidate format](docs/question-service.md#offline-manifest-workflow).
-Generation uses the configured OpenRouter key/model only on explicit invocation.
-No AI request runs during seeding, application startup, exports or regular gameplay.
-The Question Lab generates only after an explicit player request.
-
-## Code and behavior
-
-- [Architecture, rules, verification, and limitations](docs/game-interface.md)
-- [Question service, API, streaming, and verification](docs/question-service.md)
-- [Design tokens and shared styles](docs/design-system.md)
-- Rules and reducer: `src/features/game/game-rules.mjs`
-- React state adapter: `src/features/game/useGame.js`
-- Game UI: `src/components/Game` and its sibling components
-- Runtime questions: PostgreSQL `public.questions`
-- Seed dataset: `db/seed/questions.json` (200 curated questions; stable dataset IDs, curated IDs 1–200)
-- Schema and workflow: `db/schema.sql`, `db/schema.mjs`, `db/seed.mjs`, `db/reset.mjs`
-- Server-side question retrieval: `src/server/questions.mjs`
-
-The async home page calls the question service directly and passes the bank into
-the interactive game. Development retrieval waits 1,000 ms so the automatic
-`loading.js` skeleton is visible on a fresh navigation. Production streams live
-database questions without an artificial wait. `GET /api/questions` uses the same
-service and returns public fields. Both the page and API omit answers, explanations,
-and source links. `POST /api/challenge` checks a curated question on the server
-and reveals the answer and checked reference only on a successful challenge.
-
-An optional destructive reset is deliberately separate:
-
-```sh
-NODE_ENV=development npm run db:reset -- --confirm-reset
-```
-
-It drops and recreates only `public.questions`, then reseeds it in a transaction.
-It requires development/test mode, confirmation, a loopback host, and a reserved
-`no_way_dev` or `no_way_test` database name. It verifies the connected database and
-server address before any destructive SQL. Hosted/unknown targets are refused.
-
-Player sessions, synchronization, scoring, and timed round progression are
-not implemented. The UI makes no claims about players or network connections.
+- [Live application](https://no-way.paxeri.dev)
+- [GitHub repository](https://github.com/lucaspasseri/no-way)
+- [Game architecture, rules and accessibility](docs/game-interface.md)
+- [Question service and content workflow](docs/question-service.md)
+- [AI Lab architecture and limits](docs/question-lab.md) · [Recovery policy](docs/ai-lab-recovery.md)
+- [Localization and measurement handling](docs/localization.md)
+- [Design system](docs/design-system.md) · [Dataset audit](docs/question-curation-report.md)
+- [Development and operations](docs/development.md) · [Demo recording](docs/demos.md)

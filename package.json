@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "demos:record": "node --import ./tests/register.mjs scripts/record-demos.mjs",
+    "demos:check": "node scripts/check-demos.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -40,6 +42,7 @@
   "devDependencies": {
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.5"
+    "eslint-config-next": "16.4.5",
+    "playwright": "^1.65.1"
   }
 }
