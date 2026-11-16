@@ -6,7 +6,7 @@ import { assertResetAllowed, seedQuestions } from './seed.mjs';
 import bank from './seed/questions.json' with { type:'json' };
 it('initializes the canonical non-destructive lifecycle schema',async()=>{
  let sql = ''; await applySchema({query:async text=>{sql+=text;}});
- assert.match(sql,/CREATE TABLE IF NOT EXISTS/);assert.match(sql,/curated_id integer UNIQUE/);assert.match(sql,/'generated', 'validated', 'curated'/);assert.doesNotMatch(sql,/\bDROP\b|TRUNCATE|DELETE/);
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS/);assert.match(sql,/curated_id integer UNIQUE/);assert.match(sql,/'generated', 'validated', 'curated'/);assert.doesNotMatch(sql,/\bDROP\s+(?:TABLE|SCHEMA|DATABASE|COLUMN)|TRUNCATE|DELETE/);
  assert.match(sql,/question_lab_packs/);
 });
 it('seeds with the same guarded SQL as offline exports and rolls back conflicts',async()=>{

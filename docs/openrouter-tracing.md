@@ -1,5 +1,12 @@
 # Persistent OpenRouter request diagnostics
 
+Phase 3 adds recovery metadata and explicit non-HTTP decision events to this
+collector. Use `npm run db:recovery` on existing installations. Its shared
+operational cooldown table is separate from these historical records. See
+[AI Lab recovery](ai-lab-recovery.md) for current policy and installation details;
+the original single-request tracing behavior described below remains available to
+operator tooling.
+
 AI Lab generation now writes structured request traces to PostgreSQL. This is observability only: the generation prompt/algorithm, two-question batches, 7/10/12-attempt budgets, model fallback configuration, 20-second provider deadline, pack ownership, and question lifecycle remain unchanged. No external monitoring service or new dependency is introduced.
 
 ## Install and deploy
@@ -52,7 +59,7 @@ Outcomes include `in_flight`, `http_received`, `response_parsed`, `accepted`, `e
 
 A successful HTTP request typically needs three checkpoints; failures can need four. Upserts and unchanged-state suppression keep a single row per outbound HTTP invocation. Only actual additional HTTP invocations get another trace ID. There is no retry loop added by tracing.
 
-`attemptNumber` is the existing pack-wide advance counter. `batchNumber` identifies the logical two-question fill slot (`floor(acceptedBefore / 2) + 1`), so a failed attempt and its resumed request share that slot. `httpAttemptNumber` numbers actual transport invocations within one advance; it is normally 1 because SDK retries remain disabled. Native OpenRouter model fallbacks inside that request do not become fictitious outbound HTTP attempts. An interrupted/rolled-back pack transaction may reuse its advance counter on a later real request; distinct trace UUIDs still distinguish those requests.
+`attemptNumber` is the pack-wide provider-call budget counter. `batchNumber` identifies the logical two-question fill slot (`floor(acceptedBefore / 2) + 1`). `httpAttemptNumber` numbers actual transport invocations within one advance (up to three during Lab recovery); SDK retries remain disabled. Each row's request models describe what was actually sent; `recovery.originalModels` retains original configured priorities. A skip-only recovery has `event_type=recovery_decision` and a null HTTP attempt number, and does not increase HTTP request totals. A rolled-back pack transaction may reuse its counter; distinct trace and recovery UUIDs distinguish actual events.
 
 Ordered checkpoints run alongside HTTP processing and are drained before the Lab returns. Slow or failed diagnostic writes do not consume the provider's HTTP deadline or reclassify its result. Traces use a separate two-connection pool with short connection/statement/query timeouts. This avoids deadlocking behind the pack transaction, and committed diagnostics survive its rollback. `application.generationDecision` records what generation decided; `packCommit: not_observed` explicitly avoids claiming that the surrounding transaction committed or that the browser received the result. The HTTP duration excludes diagnostic database writes; `lifecycleCompletedAt` marks the later parsing/validation checkpoint. Preflight errors that send no HTTP request create no request trace.
 

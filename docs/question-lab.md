@@ -1,5 +1,8 @@
 # AI Question Lab
 
+Phase 3 recovery policy, shared cooldowns, configuration, installation, operator
+history, and simulations are documented in [AI Lab recovery](ai-lab-recovery.md).
+
 Open **Settings → AI Question Lab**, choose 10, 15, or 20 questions, and select up
 to three categories from the live curated bank, a custom topic, or Surprise Me.
 Difficulty uses the existing easy/medium/hard values; Mixed is a generation
@@ -21,13 +24,11 @@ backups. Set it empty to disable backups. Lists are validated, deduplicated, and
 limited to three total models. Explicit operator `--model` overrides remain pinned to that one model.
 All configured endpoints must support the same schema and `reasoning.effort=none`.
 
-OpenRouter's native `models` list performs the failover within one SDK call.
-All models share the original 20-second lab deadline; switching models does not
-extend it. The gateway can fall back on rate limits, unavailable endpoints, and
-other routing errors. A client-side timeout or successful response containing
-invalid questions does not trigger a new client request. Nonexistent catalog IDs
-and incompatible request settings can be rejected before routing begins. The existing bounded lab
-attempt budget remains responsible for subsequent requests. Question provenance
+Operator tooling retains OpenRouter's native `models` routing. The Lab pins each
+request to one approved model and coordinates retries/alternatives under one
+recovery deadline and the original pack attempt budget. Uncertain local timeouts
+and invalid content do not trigger provider recovery. Invalid model/settings
+errors fail fast. Question provenance
 records the model actually returned by OpenRouter. Defaults stay free; adding paid
 IDs explicitly in server configuration can incur their published charges.
 
@@ -117,21 +118,18 @@ its answering model. Zero reported attempts plus every available endpoint marked
 `selected=false` confirms rejection before selection. Without that evidence,
 routing remains unknown. Successful pack results also show the answering model.
 
-Known account-wide free-model daily exhaustion pauses generation immediately.
-Its sanitized restriction is saved atomically in the existing pack JSON and
-checked across players and server instances before creating or advancing packs.
-No additional attempt is consumed during an active recorded cooldown. Expired
-packs remain private but are retained during their recorded restriction so that
-cleanup cannot erase the guard. Operators should apply the same condition when
-performing manual pack cleanup. Optional trace-write failures do not defeat this
-guard. Requests already in flight in another generation lane may still finish.
+Known free-model daily exhaustion blocks other free models immediately. Cooldowns
+are independently committed in the private operational table, coordinated across
+instances sharing a credential, and survive pack rollback/expiry. Skips consume no
+attempts. Optional trace-write failures cannot disable this guard. In-flight calls
+may still finish. Only explicitly configured, unaffected models are eligible
+alternatives; no model is introduced automatically.
 
-The guard uses the later supplied daily reset/retry timestamp. Temporary limits
-respect their supplied retry time for the affected pack. Missing times remain
-unknown; a daily restriction without a time ends the current generation without
-spending its remaining attempts. There is no retry scheduler or assumed daily
-quota value. After a recorded cooldown expires, a manual retry checks actual
-availability; renewal is not guaranteed. Accepted questions always remain saved.
+The guard respects supplied reset/retry timestamps and reliable scopes. Missing
+provider times remain unknown, with a bounded local safety wait labeled as
+application policy. Recovery never waits beyond its deadline or invents quota
+renewal. Accepted questions remain saved. Full deployment details are in
+[AI Lab recovery](ai-lab-recovery.md).
 
 The bilingual report uses the browser's timezone and localized dates, with quiet
 relative-time updates and no polling requests. It includes saved-pack totals
@@ -166,7 +164,7 @@ maximum of seven/ten/twelve provider attempts, including manual retries after er
 Timeouts, rate limits, authentication failures, and malformed responses retain safe
 error codes and specific recovery messages. The deadline covers reading the body,
 including failures after an initial HTTP 200 response. Exhausted packs do not claim
-that retry attempts remain. Provider failure pauses generation so the player can retry, retain accepted
+that retry attempts remain. Provider failure after bounded recovery pauses generation so the player can retry, retain accepted
 questions, or change the configuration. Fewer valid provider candidates can be
 retained. No placeholders or fallback curated questions fill a pack.
 

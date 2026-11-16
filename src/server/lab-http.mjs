@@ -47,6 +47,7 @@ export async function readLabBody(request) {
 }
 
 const databaseDiagnostics = {
+  LAB_COOLDOWN_UNAVAILABLE: 'LAB_DATABASE_CONNECTION',
   DATABASE_URL_MISSING: 'LAB_CONFIGURATION_REQUIRED',
   DATABASE_URL_INVALID: 'LAB_CONFIGURATION_REQUIRED',
   '42P01': 'LAB_SETUP_REQUIRED',
@@ -81,7 +82,7 @@ const diagnosticMessages = {
 };
 
 export function labError(error, action = 'unknown') {
-  if (error?.code === 'AI_DAILY_COOLDOWN' && sanitizePublicDetails(error.details)) {
+  if (['AI_DAILY_COOLDOWN','AI_COOLDOWN_BLOCKED'].includes(error?.code) && sanitizePublicDetails(error.details)) {
     const details = sanitizePublicDetails(error.details);
     return { status: 429, code: error.code, message: details.message, details };
   }

@@ -29,6 +29,7 @@
 .outcome p { margin-bottom: 10px; }
 .outcome strong { font-size: 13px; display: block; margin-bottom: 6px; }
 .actions { padding: 0 24px 22px; }
+.recovery { padding: 0 24px; }
 .actions h3 { margin-bottom: 4px; }
 .actions > div { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .actions :global(.button) { min-height: 42px; font-size: 11px; }

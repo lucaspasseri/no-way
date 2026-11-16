@@ -41,7 +41,7 @@ export async function POST(request) {
       return Response.json({ result }, { headers });
     }
     const pack = action === 'create' ? await questionLab.create(id, identity.owner, body.config)
-      : action === 'advance' ? await questionLab.advance(id, identity.owner, body.attempt)
+      : action === 'advance' ? await questionLab.advance(id, identity.owner, body.attempt, request.signal)
       : action === 'report' ? await questionLab.report(id, identity.owner, body.questionId)
       : await questionLab.finish(id, identity.owner);
     const failedRequest = action === 'advance' && pack.errorDetails && pack.errorDetails.category !== 'validation_failure';

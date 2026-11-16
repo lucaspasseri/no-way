@@ -7,6 +7,8 @@ import { validateCandidate } from '../../db/question-validation.mjs';
 import { generateCandidates } from '../../db/generate-questions.mjs';
 import { labChunkSize, maxAttempts } from '../features/lab/config.mjs';
 import { cooldownActive } from '../features/lab/diagnostics.mjs';
+import { recoverLabBatch } from './lab-recovery.mjs';
+import { selectedModels } from '../../scripts/openrouter.mjs';
 
 const screeningReasons = { 'Wrong category': 'CATEGORY_MISMATCH', 'Wrong difficulty': 'DIFFICULTY_MISMATCH',
   'Unstable or ambiguous': 'AMBIGUOUS_WORDING', 'Unsafe content': 'UNSAFE_CONTENT', 'Answer disclosed': 'ANSWER_DISCLOSED' };
@@ -57,23 +59,30 @@ export function screenLabCandidate(input, existing, config) {
 }
 
 export async function advanceGeneration(config, data, existing, generate = generateCandidates, tracing = null) {
-  if (cooldownActive(data.errorDetails) || (data.errorDetails?.category === 'daily_quota' && !data.errorDetails.rateLimit?.resetAt && !data.errorDetails.rateLimit?.retryAt)) return structuredClone(data);
+  const recovery = tracing?.recovery;
+  if (!recovery && (cooldownActive(data.errorDetails) || (data.errorDetails?.category === 'daily_quota' && !data.errorDetails.rateLimit?.resetAt && !data.errorDetails.rateLimit?.retryAt))) return structuredClone(data);
   const next = structuredClone(data);
-  next.attempts += 1;
+  if (!recovery) next.attempts += 1;
   const requestedCount = Math.min(labChunkSize, config.count - next.questions.length);
   const batchNumber = Math.floor(data.questions.length / labChunkSize) + 1;
   const trace = createLabTrace({ packId: tracing?.packId,
-    batchNumber: Math.floor(data.questions.length / labChunkSize) + 1, attemptNumber: next.attempts, requestedCount,
+    batchNumber, attemptNumber: data.attempts + 1, requestedCount,
     locale: config.locale, unitSystem: config.unitSystem }, tracing?.options);
   try {
-    const batch = await generate({ count: requestedCount, ...(trace && { trace }),
+    const parameters = { count: requestedCount, trace,
       preferences: { topic: config.topicMode === 'custom' ? config.topic : config.topicMode === 'surprise' ? 'surprise me' : '',
         categories: config.topicMode === 'categories' ? config.categories : [], difficulty: config.difficulty,
         locale: config.locale ?? 'en', unitSystem: config.unitSystem ?? 'original',
         knowledge: config.knowledge, challenge: config.knowledge === 'custom' ? config.challenge : '' },
       // Only repeat already-generated pack text to the provider. The full bank
       // and other private packs stay local and are still screened below.
-      existing: next.questions, timeoutMs: 20000, allowPartial: true });
+      existing: next.questions, timeoutMs: 20000, allowPartial: true };
+    let batch;
+    if (recovery) {
+      const result = await recoverLabBatch({ ...recovery, generate, options: parameters, models: selectedModels(),
+        budget: maxAttempts(config.count) - data.attempts, trace, startAttempt: data.attempts + 1 });
+      batch = result.batch; next.attempts += result.calls;
+    } else batch = await generate(parameters);
     const before = next.questions.length, rejectedBefore = next.rejected, reasons = {};
     for (const candidate of batch.candidates) {
       try {
@@ -95,17 +104,25 @@ export async function advanceGeneration(config, data, existing, generate = gener
     next.lastError = null;
     next.lastErrorCode = null;
   } catch (error) {
+    if (recovery) next.attempts += error.recoveryCalls ?? 0;
     await trace?.flush();
     const failure = generationFailure(error, Math.max(0, maxAttempts(config.count) - next.attempts));
     next.lastError = failure.message;
     next.lastErrorCode = failure.code;
-    next.errorDetails = trace.publicDetails(failure.code);
+    next.errorDetails = error.publicDetails ?? trace.publicDetails(failure.code);
     next.models = next.errorDetails.models;
     next.lastBatch = { batchNumber, attemptNumber: next.attempts, received: null, accepted: 0, rejected: null };
   } finally {
-    if (next.errorDetails) next.errorDetails.request = { ...next.errorDetails.request, batchNumber, attemptNumber: next.attempts };
+    if (recovery) {
+      next.recovery = trace.publicRecovery();
+      if (next.recovery) {
+        next.recoveries = [...(data.recoveries ?? []), next.recovery].slice(-12);
+        if (next.errorDetails) next.errorDetails.recovery = next.recovery;
+      }
+    }
+    if (next.errorDetails && (!recovery || next.attempts > data.attempts)) next.errorDetails.request = { ...next.errorDetails.request, batchNumber, attemptNumber: next.attempts };
     // No reset timestamp means no justified automatic retry for this generation.
-    const dailyWithoutReset = next.errorDetails?.category === 'daily_quota' && !next.errorDetails.rateLimit?.resetAt && !next.errorDetails.rateLimit?.retryAt;
+    const dailyWithoutReset = !recovery && next.errorDetails?.category === 'daily_quota' && !next.errorDetails.rateLimit?.resetAt && !next.errorDetails.rateLimit?.retryAt;
     next.status = next.questions.length >= config.count ? 'ready'
       : dailyWithoutReset || next.attempts >= maxAttempts(config.count) ? (next.questions.length ? 'partial' : 'failed') : 'generating';
     trace?.applicationResult({ generationDecision: next.status, acceptedTotal: next.questions.length, lastErrorCode: next.lastErrorCode ?? null, packCommit: 'not_observed' });

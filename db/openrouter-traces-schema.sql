@@ -24,3 +24,11 @@ CREATE INDEX IF NOT EXISTS openrouter_traces_expiry_idx ON public.openrouter_req
 REVOKE ALL ON public.openrouter_request_traces FROM PUBLIC;
 ALTER TABLE public.openrouter_request_traces ENABLE ROW LEVEL SECURITY;
 -- No public policies. The trusted table owner writes and inspects diagnostics.
+
+-- Recovery decisions with no HTTP request use the same correlation/retention.
+ALTER TABLE public.openrouter_request_traces ADD COLUMN IF NOT EXISTS event_type text NOT NULL DEFAULT 'http_request';
+ALTER TABLE public.openrouter_request_traces ALTER COLUMN http_attempt_number DROP NOT NULL;
+ALTER TABLE public.openrouter_request_traces DROP CONSTRAINT IF EXISTS openrouter_request_traces_http_attempt_number_check;
+ALTER TABLE public.openrouter_request_traces ADD CONSTRAINT openrouter_request_traces_http_attempt_number_check
+  CHECK ((event_type='http_request' AND http_attempt_number > 0 AND http_attempt_number IS NOT NULL)
+    OR (event_type='recovery_decision' AND http_attempt_number IS NULL));

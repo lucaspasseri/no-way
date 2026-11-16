@@ -24,6 +24,16 @@ export async function applySchema(client) {
 
 export async function applyLabSchema(client) {
 	await client.query(await readFile(new URL('./lab-schema.sql', import.meta.url), 'utf8'));
+	await applyCooldownSchema(client);
+}
+
+export async function applyCooldownSchema(client) {
+	await client.query(await readFile(new URL('./openrouter-cooldowns-schema.sql', import.meta.url), 'utf8'));
+}
+
+export async function applyRecoverySchema(client) {
+	await applyCooldownSchema(client);
+	await applyTraceSchema(client);
 }
 
 export async function applyTraceSchema(client) {
@@ -37,7 +47,8 @@ if (
 	let pool;
 	try {
 		pool = getPool();
-		if (process.argv.includes('--traces-only')) await applyTraceSchema(pool);
+		if (process.argv.includes('--recovery-only')) await applyRecoverySchema(pool);
+		else if (process.argv.includes('--traces-only')) await applyTraceSchema(pool);
 		else if (process.argv.includes('--lab-only')) await applyLabSchema(pool);
 		else await applySchema(pool);
 		console.log("Question schema initialized. Existing data was preserved.");

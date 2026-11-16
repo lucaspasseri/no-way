@@ -30,10 +30,11 @@ it('persists daily cooldown across players and service instances, retains questi
   assert.equal(pack.accepted, 2); assert.equal(pack.attempts, 2); assert.equal(pack.errorDetails.category, 'daily_quota');
   const calls = fetch.mock.callCount();
   assert.equal((await second.advance(pack.id, 'first-owner', 2)).attempts, 2);
-  await assert.rejects(second.advance(other.id, 'second-owner', 0), { code: 'AI_DAILY_COOLDOWN' });
+  const blockedOther = await second.advance(other.id, 'second-owner', 0);
+  assert.equal(blockedOther.errorDetails.category, 'daily_quota'); assert.equal(blockedOther.attempts, 0);
   await assert.rejects(service().create(randomUUID(), 'new-owner', defaultLabConfig), error => {
     assert.equal(error.code, 'AI_DAILY_COOLDOWN');
-    assert.equal(error.details.request.attemptNumber, null); assert.equal(error.details.models.primary, null);
+    assert.equal(error.details.request.attemptNumber, null); assert.ok(error.details.models.primary);
     assert.equal(error.details.referenceId, undefined); assert.equal(error.details.rateLimit.remaining, 0); return true;
   });
   assert.equal(fetch.mock.callCount(), calls);
@@ -46,6 +47,7 @@ it('persists daily cooldown across players and service instances, retains questi
   await db.pool.query(`UPDATE public.question_lab_packs SET data=jsonb_set(jsonb_set(data,
     '{errorDetails,rateLimit,resetAt}', '"2020-01-01T00:00:00.000Z"'),
     '{errorDetails,rateLimit,retryAt}', '"2020-01-01T00:00:00.000Z"') WHERE id=$1`, [pack.id]);
+  await db.pool.query("UPDATE public.openrouter_cooldowns SET expires_at=CURRENT_TIMESTAMP-interval '1 second'");
   limited = false;
   const afterReset = await service().create(randomUUID(), 'after-reset-owner', defaultLabConfig);
   const generated = await service().advance(afterReset.id, 'after-reset-owner', 0);

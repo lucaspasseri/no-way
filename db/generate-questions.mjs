@@ -4,7 +4,7 @@ import { requestOpenRouter } from '../scripts/openrouter.mjs';
 import { batchSchema, candidateSchema, questionError } from './question-validation.mjs';
 
 /** One deliberate, bounded provider request; no persistence or factual approval here. */
-export async function generateCandidates({ count = 1, model, preferences, existing = [], timeoutMs, allowPartial = false, trace } = {}) {
+export async function generateCandidates({ count = 1, model, preferences, existing = [], timeoutMs, allowPartial = false, trace, signal } = {}) {
   if (!Number.isInteger(count) || count < 1 || count > 5) throw questionError('INVALID_BATCH', 'Generate one to five candidates at a time.');
   const outputCandidate = preferences ? localizedCandidateSchema : candidateSchema;
   const labPrompt = preferences ? `Generate exactly ${count} distinct numerical trivia questions in the supplied JSON schema.
@@ -19,7 +19,7 @@ Honor the requested topic, audience and difficulty. Mixed means easy/medium/hard
 Preferences: ${JSON.stringify(preferences)}
 ${existing.length ? `Do not repeat these question texts (JSON data): ${JSON.stringify(existing.map(row => row.question))}` : ''}` : null;
   trace?.addSensitive([preferences?.topic, preferences?.challenge, ...existing.map(row => row.question)]);
-  const result = await requestOpenRouter({ model, ...(trace && { trace }), maxOutputTokens: preferences ? Math.max(1000, count * 600) : 3000, ...(timeoutMs && { timeoutMs }),
+  const result = await requestOpenRouter({ model, ...(trace && { trace }), signal, maxOutputTokens: preferences ? Math.max(1000, count * 600) : 3000, ...(timeoutMs && { timeoutMs }),
     responseSchema: z.toJSONSchema(allowPartial ? z.strictObject({ candidates: z.array(outputCandidate).max(count) }) : batchSchema, { target: 'draft-7' }),
     prompt: labPrompt ?? `Generate exactly ${count} distinct numerical trivia candidates as JSON matching the supplied schema.
 Prefer stable, independently verifiable facts. No subjective answers or uncertain estimates.

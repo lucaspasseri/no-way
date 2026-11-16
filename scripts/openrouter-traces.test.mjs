@@ -35,3 +35,14 @@ it('runs retention cleanup only as an explicit operator command',async()=>{
   assert.deepEqual(result,{removed:4});assert.equal(calls[0].sql,'BEGIN');
   assert.deepEqual(calls.find(call=>call.sql.startsWith('DELETE')).values,[50]);
 });
+
+it('inspects one correlated recovery and cleans expired operational cooldowns separately',async()=>{
+  const calls=[];
+  const client={query:async(sql,values)=>{calls.push({sql,values});return{rows:[],rowCount:2}},release:()=>{}};
+  assert.equal(await runTraceCommand(['recovery',id],async()=>client),null);
+  assert.equal(calls[0].sql,'BEGIN READ ONLY');
+  assert.deepEqual(calls.find(call=>call.sql.includes("details#>>'{recovery,id}'")).values,[id]);
+  calls.length=0;
+  assert.deepEqual(await runTraceCommand(['cleanup-cooldowns','--limit','10'],async()=>client),{removed:2});
+  assert.equal(calls[0].sql,'BEGIN');assert.deepEqual(calls.find(call=>call.sql.startsWith('DELETE')).values,[10]);
+});

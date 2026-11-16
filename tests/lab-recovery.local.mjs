@@ -1,0 +1,73 @@
+import { it } from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { temporaryPostgres } from './temporary-postgres.mjs';
+import { createLabService } from '../src/server/question-lab.mjs';
+import { createCooldownStore, cooldownNamespace, requestScope, cleanupCooldowns } from '../db/openrouter-cooldowns.mjs';
+import { applyRecoverySchema } from '../db/schema.mjs';
+import { closeTracePool, recoveryHistory } from '../db/openrouter-traces.mjs';
+import { defaultLabConfig } from '../src/features/lab/config.mjs';
+import { publicDiagnostics } from '../src/features/lab/diagnostics.mjs';
+import { openrouterResponse } from './fixtures/openrouter-responses.mjs';
+import { labCandidates } from './fixtures/lab-candidates.mjs';
+
+it('coordinates cooldowns independently of pack transactions and reconstructs recovery from private traces', {timeout:60000}, async t=>{
+  const db=await temporaryPostgres();
+  const envNames=['DATABASE_URL','OPENROUTER_API_KEY','OPENROUTER_MODEL','OPENROUTER_FALLBACK_MODELS'];
+  const previous=Object.fromEntries(envNames.map(key=>[key,process.env[key]]));
+  process.env.DATABASE_URL=db.connectionString;process.env.OPENROUTER_API_KEY='isolated-recovery-secret';
+  process.env.OPENROUTER_MODEL='test/primary:free';process.env.OPENROUTER_FALLBACK_MODELS='test/alternative:free';
+  t.after(async()=>{await closeTracePool();await db.close();for(const [key,value] of Object.entries(previous))if(value===undefined)delete process.env[key];else process.env[key]=value;});
+  await applyRecoverySchema(db.pool);await applyRecoverySchema(db.pool);
+  const models=['test/primary:free','test/alternative:free'],namespace=cooldownNamespace(),route=requestScope(models);
+  const firstStore=createCooldownStore(()=>db.pool), secondStore=createCooldownStore(()=>db.pool);
+  const details=publicDiagnostics({http:{status:429},rateLimit:{kind:'upstream_provider_capacity'}},'AI_RATE_LIMIT');
+  const limit={scope:'model',model:models[0],timing:'provider',until:new Date(Date.now()+60000).toISOString()};
+  details.rateLimit={...details.rateLimit,scope:'model',cooldownUntil:limit.until,timing:'provider'};
+  await Promise.all([firstStore.put(namespace,route,limit,details),secondStore.put(namespace,route,{...limit,until:new Date(Date.now()+10000).toISOString()},details)]);
+  assert.equal((await firstStore.active(namespace,route))[0].until,limit.until,'An atomic shorter upsert must not shorten a known wait');
+  assert.equal((await secondStore.active(namespace,route))[0].model,models[0]);
+  assert.deepEqual(await firstStore.active(cooldownNamespace('different-secret'),route),[],'Credential rotation does not inherit unrelated state');
+  const connection=await db.pool.connect();
+  await connection.query('BEGIN');
+  await connection.query('SELECT 1');
+  await secondStore.put(namespace,route,{scope:'request',timing:'local_policy',until:new Date(Date.now()+10000).toISOString()},details);
+  await connection.query('ROLLBACK');connection.release();
+  assert.equal((await firstStore.active(namespace,route)).length,2,'Autocommit availability state survives another transaction rollback');
+  await db.pool.query("DELETE FROM public.openrouter_cooldowns WHERE scope='request'");
+  const fetch=t.mock.method(globalThis,'fetch',async request=>{
+    const {model}=await request.clone().json();
+    assert.equal(model,models[1],'An active model bucket must select the approved, unaffected alternative');
+    return Response.json(openrouterResponse(JSON.stringify({candidates:labCandidates.slice(0,2)}),{model}));
+  });
+  const service=createLabService({pool:()=>db.pool,cooldowns:secondStore,options:async()=>({categories:['science']})});
+  let pack=await service.create(randomUUID(),'recovery-owner',defaultLabConfig);
+  pack=await service.advance(pack.id,'recovery-owner',0);
+  assert.equal(pack.accepted,2);assert.equal(pack.attempts,1);assert.equal(fetch.mock.callCount(),1);
+  assert.equal(pack.models.primary,models[0]);assert.equal(pack.models.successful,models[1]);assert.equal(pack.recovery.usedAlternative,true);
+  assert.ok(pack.recovery.steps.some(step=>step.action==='skipped'&&step.model===models[0]));
+  const history=await recoveryHistory(db.pool,pack.recovery.id);
+  assert.equal(history.providerCalls,1);assert.equal(history.finalModel,models[1]);assert.ok(history.decisions.some(step=>step.action==='skipped'));
+  assert.doesNotMatch(JSON.stringify({pack,history}),/isolated-recovery-secret|credential_hash|Authorization|answer.*:8/);
+  await db.pool.query('CREATE ROLE recovery_untrusted NOLOGIN');
+  await db.pool.query('GRANT USAGE ON SCHEMA public TO recovery_untrusted');
+  const untrusted=await db.pool.connect();
+  try {await untrusted.query('SET ROLE recovery_untrusted');await assert.rejects(untrusted.query('SELECT * FROM public.openrouter_cooldowns'),{code:'42501'});}
+  finally {await untrusted.query('RESET ROLE');untrusted.release();}
+  await db.pool.query("UPDATE public.openrouter_cooldowns SET expires_at=CURRENT_TIMESTAMP-interval '1 second'");
+  assert.deepEqual(await firstStore.active(namespace,route),[]);assert.equal(await cleanupCooldowns(db.pool),1);
+  const legacyDetails=publicDiagnostics({rateLimit:{kind:'free_tier_daily',resetAt:new Date(Date.now()+60000).toISOString()}},'AI_RATE_LIMIT');
+  const legacyId=randomUUID();
+  await db.pool.query('INSERT INTO public.question_lab_packs(id,owner_hash,config,data) VALUES ($1,$2,$3::jsonb,$4::jsonb)',
+    [legacyId,'phase-two-owner',JSON.stringify(defaultLabConfig),JSON.stringify({questions:[],attempts:1,rejected:0,status:'generating',errorDetails:legacyDetails,reports:[]})]);
+  const beforeImport=fetch.mock.callCount();
+  await assert.rejects(service.create(randomUUID(),'phase-three-owner',defaultLabConfig),{code:'AI_DAILY_COOLDOWN'});
+  assert.equal(fetch.mock.callCount(),beforeImport);
+  await db.pool.query('DELETE FROM public.question_lab_packs WHERE id=$1',[legacyId]);
+  assert.equal((await firstStore.active(namespace,route))[0].scope,'free_models','Legacy state is imported before its pack can disappear');
+  await db.pool.query('DROP TABLE public.openrouter_cooldowns');
+  await assert.rejects(firstStore.active(namespace,route),{code:'LAB_COOLDOWN_UNAVAILABLE'});
+  const before=fetch.mock.callCount();
+  await assert.rejects(service.create(randomUUID(),'unavailable-store-owner',defaultLabConfig),{code:'LAB_COOLDOWN_UNAVAILABLE'});
+  assert.equal(fetch.mock.callCount(),before,'Missing operational schema must not cause recovery loops');
+});

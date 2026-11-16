@@ -70,6 +70,14 @@ Fresh `db:schema` installations already include it. The existing server-only
 OpenRouter credentials/model are reused. See [architecture, limits, recovery,
 and tests](docs/question-lab.md) for details.
 
+AI Lab recovery uses one bounded retry/fallback budget and shared PostgreSQL
+cooldowns. Existing installations need `npm run db:recovery` before deployment.
+See [recovery policy, defaults, operator history, and simulations](docs/ai-lab-recovery.md).
+
+Existing installations also need `npm run db:recovery` for shared cooldowns and
+recovery trace events. See [AI Lab recovery](docs/ai-lab-recovery.md) for bounded
+retry/fallback policy, configuration defaults, operator history, and simulations.
+
 ## Checks
 
 ```sh

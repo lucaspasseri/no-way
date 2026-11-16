@@ -5,16 +5,18 @@ import { AlertCircle, CheckCircle, Clock, Copy, GitBranch, Shield, X } from 'rea
 import { useI18n } from '@/i18n/LocalizationProvider';
 import { cooldownActive, cooldownUntil, formatRetryTime, modelName, sanitizePublicDetails } from '@/features/lab/diagnostics.mjs';
 import styles from './LabErrorResult.module.css';
+import RecoverySummary from './RecoverySummary';
 
-export function ModelRouting({ models, showIdentifiers = true }) {
+export function ModelRouting({ models, recovery, latest = false, showIdentifiers = true }) {
   const { t } = useI18n();
   if (!models?.primary && !models?.successful) return null;
   const entries = [models.primary, ...models.fallbacks].filter(Boolean);
   if (models.successful && !entries.includes(models.successful)) entries.push(models.successful);
-  const status = id => id === models.successful ? 'Used successfully' : models.confirmedAttempts.includes(id) ? 'Attempted (confirmed)'
+  const skipped = id => recovery?.steps?.findLast(step => ['request','skipped'].includes(step.action) && step.model === id)?.action === 'skipped';
+  const status = id => id === models.successful ? 'Used successfully' : models.confirmedAttempts.includes(id) ? 'Attempted (confirmed)' : skipped(id) ? 'Skipped during cooldown'
     : models.notSelected ? 'Not selected (confirmed)' : id === models.primary ? 'Requested' : 'Available as fallback';
   return <section className={styles.routing} aria-label={t('Model routing')}>
-    <h3><GitBranch size={15} aria-hidden='true' />{t('Model routing')}<span>OpenRouter</span></h3>
+    <h3><GitBranch size={15} aria-hidden='true' />{t('Model routing')}<span>{latest && <>{t('Latest batch')} · </>}OpenRouter</span></h3>
     <ol>{entries.map((id, index) => <li key={id} data-success={id === models.successful}>
       <span className={styles.modelNumber} aria-hidden='true'>{id === models.successful ? <CheckCircle size={16} /> : String(index + 1).padStart(2, '0')}</span>
       <div><small>{t(id === models.primary ? 'Primary model' : id === models.successful ? 'Actual model' : 'Fallback model')}</small><strong>{modelName(id)}</strong></div>
@@ -67,14 +69,15 @@ export default function LabErrorResult({ details: input, pack, now, onRetry, onS
     {rate && <div className={styles.availability}>
       <dl>{rate.limit != null && <div><dt>{t('Request limit')}</dt><dd>{formatNumber(rate.limit)}</dd></div>}
         {rate.remaining != null && <div><dt>{t('Requests remaining')}</dt><dd>{formatNumber(rate.remaining)}</dd></div>}
-        <div className={styles.reset}><dt>{t(daily ? 'Recorded quota reset' : 'Retry availability')}</dt><dd>{retryAt ? <time dateTime={new Date(retryAt).toISOString()}>{formatRetryTime(retryAt, locale)}</time> : t('Time unknown')}</dd>
+        <div className={styles.reset}><dt>{t(rate.timing === 'local_policy' ? 'Local safety wait' : rate.availableAt ? 'Next eligible model check' : daily ? 'Recorded quota reset' : 'Retry availability')}</dt><dd>{retryAt ? <time dateTime={new Date(retryAt).toISOString()}>{formatRetryTime(retryAt, locale)}</time> : t('Time unknown')}</dd>
           {waiting && <small>{new Intl.RelativeTimeFormat(locale, { numeric: 'always' }).format(retryMinutes >= 60 ? Math.ceil(retryMinutes / 60) : retryMinutes, retryMinutes >= 60 ? 'hour' : 'minute')}</small>}</div></dl>
       {daily && <p>{t('Switching free models or generating another pack will not bypass this account-wide daily limit.')}</p>}
+      {rate.timing === 'local_policy' && <p>{t('The provider did not supply a reset. The Lab is briefly pausing requests to avoid repeated failures. This wait does not guarantee renewed quota.')}</p>}
       <p>{t(expired ? 'The recorded wait has ended. You can try again, but renewed quota or capacity is not guaranteed.'
         : waiting ? 'Retrying before this time is unlikely to work.' : 'The provider did not supply a retry time. No reset time has been assumed.')}</p>
     </div>}
     <div className={styles.body}>
-      <ModelRouting models={details.models} showIdentifiers={false} />
+      <ModelRouting models={details.models} recovery={details.recovery} showIdentifiers={false} />
       <section className={styles.outcome}><h3><Shield size={15} aria-hidden='true' />{t('What happened to my questions?')}</h3>
         {details.request.attemptNumber != null && <p>{t('Latest request · batch {batch}, attempt {attempt}', { batch: details.request.batchNumber, attempt: details.request.attemptNumber })}</p>}
         <p>{t(details.models.notSelected ? 'This request was rejected before any questions were generated.'
@@ -85,9 +88,10 @@ export default function LabErrorResult({ details: input, pack, now, onRetry, onS
         {accepted > 0 && <p>{t('Your accepted questions are preserved. Keep them to review and play.')}</p>}
       </section>
     </div>
+    {details.recovery && <div className={styles.recovery}><RecoverySummary recovery={details.recovery} failure /></div>}
     <div className={styles.actions}><h3>{t('What can I do now?')}</h3>
       {exhausted && <p>{t('This pack has reached its attempt limit. Generate a new pack or keep any accepted questions.')}</p>}
-      <p>{t(daily && !expired ? 'Wait for the recorded reset before trying again. If no reset was supplied, check back later.'
+      <p>{t(daily && !expired ? rate?.timing === 'local_policy' ? 'No quota reset was supplied. Wait before checking availability again.' : 'Wait for the recorded reset before trying again. If no reset was supplied, check back later.'
         : !details.retryable ? 'Return to settings or ask the game host to review the AI connection.' : 'Try again when available, or keep the questions already saved.')}</p>
       <div>{canRetry && <button className='button' onClick={onRetry}>{t(pack?.status === 'generating' ? 'Resume generation' : 'Regenerate pack')}</button>}
         {accepted > 0 && <button className='button button-secondary' onClick={onKeep}>{t('Review saved questions')}</button>}

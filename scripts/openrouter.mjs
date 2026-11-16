@@ -26,9 +26,10 @@ function requestError(error) {
     404: 'The OpenRouter model or endpoint is unavailable. Choose a slug from https://openrouter.ai/models.',
     408: 'OpenRouter timed out. Please try again.',
     429: 'OpenRouter rate limit reached. Wait before retrying or choose another model.',
+    422: 'OpenRouter rejected the request parameters.',
   };
   const codes = { 400: 'AI_REQUEST_REJECTED', 401: 'AI_AUTHENTICATION', 402: 'AI_CREDITS', 403: 'AI_ACCESS_DENIED',
-    404: 'AI_MODEL_UNAVAILABLE', 408: 'AI_TIMEOUT', 429: 'AI_RATE_LIMIT' };
+    404: 'AI_MODEL_UNAVAILABLE', 408: 'AI_TIMEOUT', 422: 'AI_REQUEST_REJECTED', 429: 'AI_RATE_LIMIT' };
   if (messages[error?.statusCode]) return new OpenRouterRequestError(messages[error.statusCode], codes[error.statusCode]);
   if (error?.statusCode >= 500) return new OpenRouterRequestError('OpenRouter or its provider is temporarily unavailable. Please try again.', 'AI_UNAVAILABLE');
   if (['RequestTimeoutError', 'RequestAbortedError', 'TimeoutError', 'AbortError'].includes(error?.name)) {
@@ -42,7 +43,7 @@ function requestError(error) {
     error?.name === 'ConnectionError' ? 'AI_NETWORK_ERROR' : 'AI_PROVIDER_ERROR');
 }
 
-function selectedModels({ model, models }) {
+export function selectedModels({ model, models } = {}) {
   let values;
   if (models !== undefined) {
     if (model != null || !Array.isArray(models) || !models.length) {
@@ -69,7 +70,7 @@ function selectedModels({ model, models }) {
 /** One bounded SDK request. OpenRouter routes the ordered list; no client retry loop.
  * @param {{ model?: string, models?: string[], prompt?: string, responseSchema?: object, maxOutputTokens?: number, timeoutMs?: number }} options
  */
-export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128, timeoutMs = 30000, trace } = {}) {
+export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT, responseSchema, maxOutputTokens = 128, timeoutMs = 30000, trace, signal } = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) {
     throw new OpenRouterRequestError('OPENROUTER_API_KEY is not set. Create a key at https://openrouter.ai/keys and add it to .env or your server environment.', 'AI_NOT_CONFIGURED');
@@ -82,7 +83,8 @@ export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT
   trace?.addSensitive([apiKey, prompt]);
   let response;
   // Keep one explicit deadline through both headers and response-body decoding.
-  const deadline = AbortSignal.timeout(timeoutMs);
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const deadline = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
     const client = new OpenRouter({
       apiKey,
@@ -125,7 +127,9 @@ export async function requestOpenRouter({ model, models, prompt = DEFAULT_PROMPT
     // Persist the original HTTP snapshot before mapping it to a public error.
     // A slow diagnostics write must not reclassify a 429 as a later timeout.
     await trace?.drain();
-    const failure = error instanceof OpenRouterRequestError ? error : requestError(timedOut ? { name: 'TimeoutError' } : error);
+    const effectiveStatus = trace?.recoveryEvidence?.().effectiveStatus;
+    const failure = effectiveStatus >= 400 ? requestError({ statusCode: effectiveStatus })
+      : error instanceof OpenRouterRequestError ? error : requestError(timedOut ? { name: 'TimeoutError' } : error);
     trace?.failure(error, 'sdk', failure.code);
     await trace?.flush();
     throw failure;

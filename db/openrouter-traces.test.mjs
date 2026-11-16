@@ -7,7 +7,8 @@ it('installs an additive private trace table without deleting packs or canonical
   const sql = await readFile(new URL('./openrouter-traces-schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS/); assert.match(sql, /PRIMARY KEY/);
   assert.match(sql, /REVOKE ALL.*FROM PUBLIC/); assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
-  assert.doesNotMatch(sql, /DROP|TRUNCATE|DELETE|REFERENCES/);
+  assert.doesNotMatch(sql, /DROP\s+(?:TABLE|SCHEMA|DATABASE|COLUMN)|TRUNCATE|DELETE|REFERENCES/);
+  assert.match(sql, /event_type='recovery_decision' AND http_attempt_number IS NULL/);
 });
 it('bounds retention configuration and upserts one durable row per HTTP trace ID', async t => {
   const previous = process.env.OPENROUTER_TRACE_RETENTION_DAYS;

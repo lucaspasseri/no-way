@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { saveTrace } from '../../db/openrouter-traces.mjs';
 import { boundedJSON, diagnosticHeaders, rateLimitInfo, redactText, sanitizeDiagnostic, traceLimit } from './openrouter-trace-safety.mjs';
-import { publicDiagnostics, publicModels } from '../features/lab/diagnostics.mjs';
+import { publicDiagnostics, publicModels, publicRecovery } from '../features/lab/diagnostics.mjs';
 
 const wireLimit = 65536;
 async function readSnapshot(response, signal) {
@@ -58,6 +58,7 @@ function categoryFor(status, rate) {
  * error transformation, then updates the same row with parsing/validation outcomes. */
 export function createLabTrace(context, { persist = saveTrace } = {}) {
   const records = [], attempted = new Map(), secrets = [];
+  let recovery = null, currentAttempt = context.attemptNumber, decisionRecord = null;
   let warned = false, pending = null;
   async function flush(record) {
     try {
@@ -85,6 +86,14 @@ export function createLabTrace(context, { persist = saveTrace } = {}) {
     pending = pending ? pending.then(() => flush(copy)) : flush(copy);
   }
   const last = () => records.at(-1);
+  function aggregate() {
+    const record = last() ?? decisionRecord ?? {};
+    if (!recovery) return record;
+    return { ...record, request: { ...record.request, primaryModel: recovery.originalModels[0], fallbackModels: recovery.originalModels.slice(1) },
+      routing: { ...record.routing, confirmedAttempts: records.flatMap(item => item.routing.confirmedAttempts),
+        successfulModel: [...records].reverse().find(item => item.routing.successfulModel)?.routing.successfulModel ?? null,
+        notSelected: records.length > 0 && records.every(item => item.routing.notSelected === true) }, recovery };
+  }
   return {
     addSensitive(values) { secrets.push(...values.filter(value => typeof value === 'string' && value.length >= 2)); },
     transport(configuration) {
@@ -99,7 +108,7 @@ export function createLabTrace(context, { persist = saveTrace } = {}) {
           if (typeof sent.input === 'string') secrets.push(sent.input);
         } catch { /* Configuration supplied by the caller remains the fallback. */ }
         const record = { version: 1, id: randomUUID(), packId: context.packId,
-          batchNumber: context.batchNumber, attemptNumber: context.attemptNumber, httpAttemptNumber: records.length + 1,
+          eventType: 'http_request', batchNumber: context.batchNumber, attemptNumber: currentAttempt, httpAttemptNumber: records.length + 1,
           environment: process.env.NODE_ENV === 'production' ? 'production' : process.env.NODE_ENV === 'test' ? 'test' : 'development',
           startedAt, completedAt: null, durationMs: null, outcome: 'in_flight',
           request: { method: 'POST', endpoint: '/api/v1/responses', models: actualModels,
@@ -135,6 +144,7 @@ export function createLabTrace(context, { persist = saveTrace } = {}) {
             const effectiveStatus = Number.isInteger(error?.code) && error.code >= 400 && error.code <= 599 ? error.code
               : error?.code === 'rate_limit_exceeded' || metadata.error_type === 'rate_limit_exceeded' ? 429 : response.status;
             const rate = rateLimitInfo(effectiveStatus, metadata, record.http.headers, Date.parse(record.http.headersAt));
+            record.effectiveStatus = effectiveStatus;
             record.rateLimit = rate;
             record.response = { id: typeof body?.id === 'string' ? redactText(body.id, secrets) : null,
               generationId: [body?.id, body?.generation_id, body?.openrouter_metadata?.generation_id, record.http.headers['x-generation-id']].find(value => typeof value === 'string' && /^gen-[A-Za-z0-9-]{1,124}$/.test(value)) ?? null,
@@ -230,9 +240,45 @@ export function createLabTrace(context, { persist = saveTrace } = {}) {
       if (rejected) record.error = { category: 'validation', code: 'QUESTIONS_REJECTED', stage: 'validation' };
     },
     applicationResult(result) { const record = last(); if (record) { record.application = result; record.lifecycleCompletedAt = new Date().toISOString(); } },
-    publicDetails(code) { return publicDiagnostics(last(), code); },
-    publicModels() { return publicModels(last()); },
+    beginRecovery(models) { recovery = { id: randomUUID(), originalModels: [...models], steps: [], outcome: 'running', providerCalls: 0, batchNumber: context.batchNumber }; },
+    nextAttempt(number) { currentAttempt = number; },
+    recoveryDecision(step) {
+      if (recovery && recovery.steps.length < 32) {
+        const { cooldown, ...decision } = step;
+        // Operational rows carry a public summary; never recursively embed it
+        // in every history step. Keep just the bounded availability decision.
+        recovery.steps.push({ ...decision, ...(cooldown && { cooldown: {
+          scope: cooldown.scope, until: cooldown.until, timing: cooldown.timing,
+        } }) });
+      }
+    },
+    finishRecovery(outcome) {
+      if (!recovery) return;
+      recovery.outcome = outcome; recovery.providerCalls = records.length;
+      recovery.successfulModel = last()?.routing?.successfulModel ?? null;
+      // No HTTP happened: persist an explicit decision event, never a fake call.
+      if (!records.length) decisionRecord = { version: 1, id: randomUUID(), packId: context.packId,
+        eventType: 'recovery_decision', batchNumber: context.batchNumber, attemptNumber: currentAttempt, httpAttemptNumber: null,
+        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development', startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(), durationMs: 0, outcome: outcome === 'cooldown' ? 'cooldown_skipped' : 'recovery_stopped',
+        request: { models: recovery.originalModels, primaryModel: recovery.originalModels[0], fallbackModels: recovery.originalModels.slice(1) },
+        routing: { confirmedAttempts: [], successfulModel: null, information: 'unknown' }, recovery };
+    },
+    recoveryEvidence() {
+      const record = last();
+      return { effectiveStatus: record?.effectiveStatus ?? record?.http?.status, rateLimit: record?.rateLimit,
+        hasHTTP: Boolean(record?.http), transportCode: record?.error?.code, stage: record?.error?.stage };
+    },
+    publicDetails(code) { return publicDiagnostics(aggregate(), code); },
+    publicModels() { return publicModels(aggregate()); },
+    publicRecovery() { return publicRecovery(aggregate().recovery); },
     async drain() { await pending; },
-    async flush() { for (const record of records) checkpoint(record); await pending; },
+    async flush() {
+      for (const record of [...records, ...(decisionRecord ? [decisionRecord] : [])]) {
+        if (recovery) record.recovery = structuredClone(recovery);
+        checkpoint(record);
+      }
+      await pending;
+    },
   };
 }
